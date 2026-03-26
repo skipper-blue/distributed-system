@@ -100,7 +100,7 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
             conn.close();
 
             return "Order placed successfully for " + order.customerName + " at " + order.branch +
-                   ". Total: $" + totalCost;
+                   ". Total: KSH" + totalCost;
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -166,7 +166,7 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
                 "SELECT branch, SUM(total_cost) as revenue FROM orders GROUP BY branch ORDER BY branch");
 
             while (rs.next()) {
-                revenues.add(rs.getString("branch") + ": $" + rs.getDouble("revenue"));
+                revenues.add(rs.getString("branch") + ": KSH" + rs.getDouble("revenue"));
             }
 
             rs.close();

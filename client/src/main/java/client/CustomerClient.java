@@ -35,9 +35,10 @@ import javax.swing.UIManager;
 import javax.swing.table.DefaultTableModel;
 
 public class CustomerClient extends JFrame {
-    private static final Color APP_BACKGROUND = new Color(244, 247, 252);
+    private static final Color APP_BACKGROUND = new Color(238, 243, 250);
     private static final Color CARD_BACKGROUND = new Color(255, 255, 255);
-    private static final Color PRIMARY_BLUE = new Color(30, 97, 180);
+    private static final Color PRIMARY_BLUE = new Color(22, 90, 166);
+    private static final Color MUTED_BUTTON = new Color(81, 93, 110);
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private static final Font SUBTITLE_FONT = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font BODY_FONT = new Font("Segoe UI", Font.PLAIN, 14);
@@ -101,11 +102,11 @@ public class CustomerClient extends JFrame {
 
         JLabel titleLabel = new JLabel("Customer Ordering");
         titleLabel.setFont(TITLE_FONT);
-        titleLabel.setForeground(new Color(24, 45, 78));
+        titleLabel.setForeground(new Color(17, 34, 64));
 
         JLabel subtitleLabel = new JLabel("Create and submit branch drink orders");
         subtitleLabel.setFont(SUBTITLE_FONT);
-        subtitleLabel.setForeground(new Color(90, 102, 121));
+        subtitleLabel.setForeground(new Color(75, 90, 112));
 
         header.add(titleLabel);
         header.add(subtitleLabel);
@@ -150,7 +151,7 @@ public class CustomerClient extends JFrame {
         addFormRow(grid, gbc, 3, "Quantity", quantitySpinner);
 
         JButton addItemButton = createButton("Add Item", PRIMARY_BLUE);
-        JButton clearButton = createButton("Clear Order", new Color(123, 131, 144));
+        JButton clearButton = createButton("Clear Order", MUTED_BUTTON);
         addItemButton.addActionListener(e -> addItem());
         clearButton.addActionListener(e -> clearOrder());
 
@@ -190,7 +191,12 @@ public class CustomerClient extends JFrame {
         orderTable.setFont(BODY_FONT);
         orderTable.setRowHeight(26);
         orderTable.setFillsViewportHeight(true);
+        orderTable.setGridColor(new Color(222, 227, 236));
+        orderTable.setSelectionBackground(new Color(220, 233, 250));
+        orderTable.setSelectionForeground(new Color(20, 38, 66));
         orderTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        orderTable.getTableHeader().setBackground(new Color(234, 240, 249));
+        orderTable.getTableHeader().setForeground(new Color(32, 53, 82));
         orderTable.getTableHeader().setReorderingAllowed(false);
 
         JScrollPane scrollPane = new JScrollPane(orderTable);
@@ -200,7 +206,7 @@ public class CustomerClient extends JFrame {
 
         totalItemsLabel = new JLabel("Total Items: 0", SwingConstants.RIGHT);
         totalItemsLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        totalItemsLabel.setForeground(new Color(61, 72, 89));
+        totalItemsLabel.setForeground(new Color(43, 55, 76));
         card.add(totalItemsLabel, BorderLayout.SOUTH);
         return card;
     }
@@ -229,7 +235,7 @@ public class CustomerClient extends JFrame {
                         javax.swing.border.TitledBorder.LEFT,
                         javax.swing.border.TitledBorder.TOP,
                         new Font("Segoe UI", Font.BOLD, 13),
-                        new Color(53, 72, 107)
+                        new Color(38, 57, 88)
                     ),
                     BorderFactory.createEmptyBorder(8, 10, 10, 10)
                 )
@@ -243,7 +249,7 @@ public class CustomerClient extends JFrame {
         if (component instanceof javax.swing.JComponent) {
             ((javax.swing.JComponent) component).setBorder(
                 BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(206, 212, 224), 1),
+                    BorderFactory.createLineBorder(new Color(188, 198, 215), 1),
                     BorderFactory.createEmptyBorder(5, 8, 5, 8)
                 )
             );
@@ -254,7 +260,7 @@ public class CustomerClient extends JFrame {
     private JLabel createFormLabel(String text) {
         JLabel label = new JLabel(text + ":");
         label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        label.setForeground(new Color(54, 63, 80));
+        label.setForeground(new Color(39, 52, 73));
         return label;
     }
 
@@ -353,9 +359,10 @@ public class CustomerClient extends JFrame {
         try {
             Order order = new Order(customerName, branch, new ArrayList<>(currentItems));
             String result = service.placeOrder(order);
+            String normalizedResult = normalizeCurrencyText(result);
             JOptionPane.showMessageDialog(
                 this,
-                result,
+                normalizedResult,
                 "Order Result",
                 result.startsWith("Order placed") ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE
             );
@@ -371,6 +378,16 @@ public class CustomerClient extends JFrame {
                 JOptionPane.ERROR_MESSAGE
             );
         }
+    }
+
+    private String normalizeCurrencyText(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = text.replace("$", "KSh ");
+        normalized = normalized.replaceAll("(?i)\\b(kes|ksh)\\b", "KSh");
+        normalized = normalized.replaceAll("KSh\\s+", "KSh ");
+        return normalized.trim();
     }
 
     public static void main(String[] args) {

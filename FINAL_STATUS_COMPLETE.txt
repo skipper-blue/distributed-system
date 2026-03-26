@@ -25,7 +25,7 @@ Server Module (3 classes):
 
 Client Module (11 classes):
   ✅ AdminClient.class (Professional dashboard with 6 reports)
-  ✅ AdminClient$1.class through AdminClient$9.class (Inner classes for UI)
+  ✅ AdminClientKSH1.class through AdminClientKSH9.class (Inner classes for UI)
   ✅ CustomerClient.class (Order placement GUI)
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -456,7 +456,7 @@ COMPILED OUTPUT:
   │   └── ServerMain.class
   └── client/
       ├── AdminClient.class
-      ├── AdminClient$1.class through AdminClient$9.class
+      ├── AdminClientKSH1.class through AdminClientKSH9.class
       └── CustomerClient.class
 
 DEPENDENCIES:

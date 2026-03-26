@@ -6,7 +6,6 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -14,6 +13,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Timer;
@@ -22,12 +22,12 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -35,18 +35,19 @@ import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 public class AdminClient extends JFrame {
-    private static final Color APP_BACKGROUND = new Color(243, 246, 252);
+    private static final Color APP_BACKGROUND = new Color(236, 242, 250);
     private static final Color CARD_BACKGROUND = new Color(255, 255, 255);
-    private static final Color HEADER_TEXT = new Color(28, 45, 76);
-    private static final Color BODY_TEXT = new Color(40, 51, 68);
-    private static final Color STATUS_OK = new Color(25, 125, 71);
-    private static final Color STATUS_PENDING = new Color(188, 130, 28);
-    private static final Color STATUS_ERROR = new Color(186, 53, 53);
+    private static final Color HEADER_TEXT = new Color(14, 38, 75);
+    private static final Color BODY_TEXT = new Color(30, 43, 62);
+    private static final Color STATUS_OK = new Color(14, 120, 72);
+    private static final Color STATUS_PENDING = new Color(129, 83, 28);
+    private static final Color STATUS_ERROR = new Color(179, 46, 46);
+    private static final Color NAV_TEXT = new Color(24, 41, 66);
     private static final DecimalFormat MONEY_FORMAT = new DecimalFormat("#,##0.00");
     private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss");
 
     private RemoteService service;
-    private JTextArea displayArea;
+    private JEditorPane displayArea;
     private JLabel statusLabel;
     private JButton customersButton;
     private JButton branchReportButton;
@@ -67,7 +68,7 @@ public class AdminClient extends JFrame {
     private void initializeUI() {
         setTitle("Distributed Drinks System - Admin Dashboard");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(1120, 700));
+        setMinimumSize(new Dimension(1160, 740));
 
         JPanel root = new JPanel(new BorderLayout(16, 16));
         root.setBorder(new EmptyBorder(16, 16, 16, 16));
@@ -93,25 +94,26 @@ public class AdminClient extends JFrame {
 
     private JPanel createHeaderPanel() {
         JPanel card = createCard();
-        card.setLayout(new BorderLayout(8, 8));
+        card.setLayout(new BorderLayout(12, 8));
+
+        JPanel textWrap = new JPanel();
+        textWrap.setOpaque(false);
+        textWrap.setLayout(new BoxLayout(textWrap, BoxLayout.Y_AXIS));
 
         JLabel titleLabel = new JLabel("Admin Dashboard");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         titleLabel.setForeground(HEADER_TEXT);
 
         JLabel subtitleLabel = new JLabel("Operations and branch analytics");
-        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        subtitleLabel.setForeground(new Color(96, 108, 128));
+        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        subtitleLabel.setForeground(new Color(71, 89, 118));
 
-        JPanel textWrap = new JPanel();
-        textWrap.setOpaque(false);
-        textWrap.setLayout(new BoxLayout(textWrap, BoxLayout.Y_AXIS));
         textWrap.add(titleLabel);
         textWrap.add(Box.createVerticalStrut(2));
         textWrap.add(subtitleLabel);
 
         statusLabel = new JLabel("Initializing...", SwingConstants.RIGHT);
-        statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         statusLabel.setForeground(STATUS_PENDING);
 
         card.add(textWrap, BorderLayout.WEST);
@@ -121,30 +123,36 @@ public class AdminClient extends JFrame {
 
     private JPanel createSidebarPanel() {
         JPanel card = createCard();
-        card.setLayout(new BorderLayout());
-        card.setPreferredSize(new Dimension(230, 420));
+        card.setPreferredSize(new Dimension(250, 470));
+        card.setLayout(new BorderLayout(0, 8));
 
-        JPanel buttons = new JPanel(new GridLayout(0, 1, 0, 10));
+        JLabel menuTitle = new JLabel("Reports");
+        menuTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        menuTitle.setForeground(new Color(52, 71, 102));
+        menuTitle.setBorder(new EmptyBorder(0, 4, 2, 0));
+        card.add(menuTitle, BorderLayout.NORTH);
+
+        JPanel buttons = new JPanel();
         buttons.setOpaque(false);
-        buttons.setBorder(new EmptyBorder(6, 6, 6, 6));
+        buttons.setLayout(new BoxLayout(buttons, BoxLayout.Y_AXIS));
 
-        customersButton = createNavButton("Customers", new Color(36, 115, 196), this::showCustomers);
-        branchReportButton = createNavButton("Branch Orders", new Color(49, 133, 186), this::showBranchReport);
-        revenueBranchButton = createNavButton("Revenue Per Branch", new Color(57, 151, 164), this::showRevenuePerBranch);
-        totalRevenueButton = createNavButton("Total Revenue", new Color(60, 168, 135), this::showTotalRevenue);
-        lowStockButton = createNavButton("Low Stock Alerts", new Color(202, 94, 75), this::showLowStockAlerts);
-        refreshButton = createNavButton("Refresh Dashboard", new Color(99, 108, 121), this::refreshConnectionOrDashboard);
-        exitButton = createNavButton("Exit", new Color(77, 86, 98), () -> System.exit(0));
+        customersButton = createNavButton("Customers", new Color(225, 237, 253), new Color(144, 177, 220), this::showCustomers);
+        branchReportButton = createNavButton("Branch Orders", new Color(226, 240, 250), new Color(145, 181, 214), this::showBranchReport);
+        revenueBranchButton = createNavButton("Revenue Per Branch", new Color(227, 244, 244), new Color(136, 188, 190), this::showRevenuePerBranch);
+        totalRevenueButton = createNavButton("Total Revenue", new Color(228, 245, 236), new Color(138, 190, 160), this::showTotalRevenue);
+        lowStockButton = createNavButton("Low Stock Alerts", new Color(250, 234, 230), new Color(212, 151, 139), this::showLowStockAlerts);
+        refreshButton = createNavButton("Refresh Dashboard", new Color(237, 240, 245), new Color(162, 171, 188), this::refreshConnectionOrDashboard);
+        exitButton = createNavButton("Exit", new Color(237, 240, 245), new Color(162, 171, 188), () -> System.exit(0));
 
-        buttons.add(customersButton);
-        buttons.add(branchReportButton);
-        buttons.add(revenueBranchButton);
-        buttons.add(totalRevenueButton);
-        buttons.add(lowStockButton);
-        buttons.add(refreshButton);
-        buttons.add(exitButton);
+        addNavButton(buttons, customersButton);
+        addNavButton(buttons, branchReportButton);
+        addNavButton(buttons, revenueBranchButton);
+        addNavButton(buttons, totalRevenueButton);
+        addNavButton(buttons, lowStockButton);
+        addNavButton(buttons, refreshButton);
+        addNavButton(buttons, exitButton);
 
-        card.add(buttons, BorderLayout.NORTH);
+        card.add(buttons, BorderLayout.CENTER);
         return card;
     }
 
@@ -152,26 +160,27 @@ public class AdminClient extends JFrame {
         JPanel card = createCard();
         card.setLayout(new BorderLayout(0, 10));
 
-        displayArea = new JTextArea();
+        displayArea = new JEditorPane();
         displayArea.setEditable(false);
-        displayArea.setLineWrap(false);
-        displayArea.setWrapStyleWord(false);
-        displayArea.setFont(new Font("Consolas", Font.PLAIN, 13));
+        displayArea.setContentType("text/html");
+        displayArea.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+        displayArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         displayArea.setForeground(BODY_TEXT);
-        displayArea.setMargin(new Insets(14, 14, 14, 14));
-        displayArea.setText(buildWelcomeText());
+        displayArea.setBackground(CARD_BACKGROUND);
+        displayArea.setMargin(new Insets(0, 0, 0, 0));
+        displayArea.setText(buildWelcomeHtml());
 
         JScrollPane scrollPane = new JScrollPane(
             displayArea,
             JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-            JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
+            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         );
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(215, 221, 232), 1));
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(214, 223, 238), 1));
         card.add(scrollPane, BorderLayout.CENTER);
 
         JLabel hint = new JLabel("Auto refresh: every 30 seconds while connected.");
         hint.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        hint.setForeground(new Color(108, 118, 136));
+        hint.setForeground(new Color(79, 94, 117));
         card.add(hint, BorderLayout.SOUTH);
 
         return card;
@@ -182,24 +191,35 @@ public class AdminClient extends JFrame {
         panel.setBackground(CARD_BACKGROUND);
         panel.setBorder(
             BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(217, 223, 234), 1),
-                new EmptyBorder(12, 12, 12, 12)
+                BorderFactory.createLineBorder(new Color(210, 221, 238), 1),
+                new EmptyBorder(14, 14, 14, 14)
             )
         );
         return panel;
     }
 
-    private JButton createNavButton(String text, Color color, Runnable action) {
+    private JButton createNavButton(String text, Color background, Color borderColor, Runnable action) {
         JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        button.setForeground(Color.WHITE);
-        button.setBackground(color);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        button.setForeground(NAV_TEXT);
+        button.setBackground(background);
         button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+        button.setOpaque(true);
+        button.setBorder(
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(borderColor, 1),
+                BorderFactory.createEmptyBorder(11, 12, 11, 12)
+            )
+        );
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.addActionListener(e -> action.run());
         return button;
+    }
+
+    private void addNavButton(JPanel panel, JButton button) {
+        panel.add(button);
+        panel.add(Box.createVerticalStrut(10));
     }
 
     private void connectToServer() {
@@ -218,7 +238,7 @@ public class AdminClient extends JFrame {
             isConnected = false;
             enableButtons(false);
             updateStatus("Connection failed - retrying...", STATUS_ERROR);
-            displayArea.setText(buildConnectionHelp(e.getMessage()));
+            displayArea.setText(buildConnectionHelpHtml(e.getMessage()));
             startReconnectTimer();
         }
     }
@@ -273,7 +293,7 @@ public class AdminClient extends JFrame {
     }
 
     private void updateStatus(String status, Color color) {
-        statusLabel.setText(status);
+        statusLabel.setText(status + " | Last refresh: " + now());
         statusLabel.setForeground(color);
     }
 
@@ -288,65 +308,97 @@ public class AdminClient extends JFrame {
     }
 
     private void loadDashboard() {
-        runReport("Refreshing dashboard...", this::buildDashboardReport);
+        runReport("Refreshing dashboard...", this::buildDashboardReportHtml);
     }
 
     private void showCustomers() {
         runReport("Loading customers...", () -> {
-            List<String> customers = service.getCustomers();
-            StringBuilder sb = new StringBuilder();
-            appendHeader(sb, "Customer Registry");
-            appendNumberedSection(sb, "Customers", customers, "No customers registered yet.");
-            return sb.toString();
+            List<ReportSection> sections = new ArrayList<>();
+            sections.add(new ReportSection(
+                "Customers",
+                normalizeCurrencyList(service.getCustomers()),
+                "No customers registered yet."
+            ));
+            return buildReportHtml(
+                "Customer Registry",
+                "Registered customer records across all branches",
+                sections,
+                null,
+                null
+            );
         });
     }
 
     private void showBranchReport() {
         runReport("Loading branch report...", () -> {
-            List<String> reports = service.getBranchReport();
-            StringBuilder sb = new StringBuilder();
-            appendHeader(sb, "Orders Per Branch");
-            appendNumberedSection(sb, "Branch Orders", reports, "No orders placed yet.");
-            return sb.toString();
+            List<ReportSection> sections = new ArrayList<>();
+            sections.add(new ReportSection(
+                "Orders Per Branch",
+                normalizeCurrencyList(service.getBranchReport()),
+                "No orders placed yet."
+            ));
+            return buildReportHtml(
+                "Branch Orders",
+                "Order count and activity by branch",
+                sections,
+                null,
+                null
+            );
         });
     }
 
     private void showRevenuePerBranch() {
         runReport("Loading branch revenue...", () -> {
-            List<String> revenues = service.getRevenuePerBranch();
-            StringBuilder sb = new StringBuilder();
-            appendHeader(sb, "Revenue Per Branch (KES)");
-            appendNumberedSection(sb, "Branch Revenue", revenues, "No revenue data available.");
-            return sb.toString();
+            List<ReportSection> sections = new ArrayList<>();
+            sections.add(new ReportSection(
+                "Revenue Per Branch (KSh)",
+                normalizeCurrencyList(service.getRevenuePerBranch()),
+                "No revenue data available."
+            ));
+            return buildReportHtml(
+                "Revenue Per Branch (KSh)",
+                "Revenue performance by location",
+                sections,
+                null,
+                null
+            );
         });
     }
 
     private void showTotalRevenue() {
         runReport("Loading total revenue...", () -> {
             double total = service.getTotalRevenue();
-            StringBuilder sb = new StringBuilder();
-            appendHeader(sb, "Total Revenue");
-            sb.append("TOTAL REVENUE (KES)\n");
-            sb.append("-------------------\n");
-            sb.append(MONEY_FORMAT.format(total)).append("\n\n");
-            sb.append("Status: ").append(total > 0 ? "Revenue recorded" : "Awaiting first order").append("\n");
-            return sb.toString();
+            return buildReportHtml(
+                "Total Revenue (KSh)",
+                "Overall income generated from all branches",
+                new ArrayList<>(),
+                "Total Revenue (KSh)",
+                "KSh " + MONEY_FORMAT.format(total)
+            );
         });
     }
 
     private void showLowStockAlerts() {
         runReport("Loading stock alerts...", () -> {
-            List<String> alerts = service.getLowStockAlerts();
-            StringBuilder sb = new StringBuilder();
-            appendHeader(sb, "Low Stock Alerts");
-            appendNumberedSection(sb, "Inventory Alerts", alerts, "All products are above threshold.");
-            return sb.toString();
+            List<ReportSection> sections = new ArrayList<>();
+            sections.add(new ReportSection(
+                "Low Stock Alerts",
+                normalizeCurrencyList(service.getLowStockAlerts()),
+                "All products are above threshold."
+            ));
+            return buildReportHtml(
+                "Low Stock Alerts",
+                "Inventory items below threshold",
+                sections,
+                null,
+                null
+            );
         });
     }
 
     private void runReport(String loadingStatus, ReportBuilder reportBuilder) {
         if (!isConnected) {
-            displayArea.setText(buildConnectionHelp("Not connected to server."));
+            displayArea.setText(buildConnectionHelpHtml("Not connected to server."));
             return;
         }
 
@@ -362,96 +414,205 @@ public class AdminClient extends JFrame {
                 try {
                     displayArea.setText(get());
                     displayArea.setCaretPosition(0);
-                    updateStatus("Connected | Last refresh: " + now(), STATUS_OK);
+                    updateStatus("Connected", STATUS_OK);
                 } catch (Exception e) {
-                    displayArea.setText("Unable to load report.\n\n" + e.getMessage());
+                    displayArea.setText(buildErrorHtml("Unable to load report", e.getMessage()));
                     updateStatus("Error loading data", STATUS_ERROR);
                 }
             }
         }.execute();
     }
 
-    private String buildDashboardReport() throws Exception {
-        List<String> customers = service.getCustomers();
-        List<String> branchReports = service.getBranchReport();
-        List<String> revenues = service.getRevenuePerBranch();
-        double totalRevenue = service.getTotalRevenue();
-        List<String> lowStockAlerts = service.getLowStockAlerts();
-
-        StringBuilder sb = new StringBuilder();
-        appendHeader(sb, "System Dashboard");
-        sb.append("Updated: ").append(now()).append("\n\n");
-        appendNumberedSection(sb, "Customers", customers, "No customers registered yet.");
-        appendNumberedSection(sb, "Orders Per Branch", branchReports, "No orders placed yet.");
-        appendNumberedSection(sb, "Revenue Per Branch (KES)", revenues, "No revenue data available.");
-
-        sb.append("TOTAL REVENUE (KES)\n");
-        sb.append("-------------------\n");
-        sb.append(MONEY_FORMAT.format(totalRevenue)).append("\n\n");
-
-        appendNumberedSection(
-            sb,
+    private String buildDashboardReportHtml() throws Exception {
+        List<ReportSection> sections = new ArrayList<>();
+        sections.add(new ReportSection(
+            "Customers",
+            normalizeCurrencyList(service.getCustomers()),
+            "No customers registered yet."
+        ));
+        sections.add(new ReportSection(
+            "Orders Per Branch",
+            normalizeCurrencyList(service.getBranchReport()),
+            "No orders placed yet."
+        ));
+        sections.add(new ReportSection(
+            "Revenue Per Branch (KSh)",
+            normalizeCurrencyList(service.getRevenuePerBranch()),
+            "No revenue data available."
+        ));
+        sections.add(new ReportSection(
             "Low Stock Alerts",
-            lowStockAlerts,
+            normalizeCurrencyList(service.getLowStockAlerts()),
             "All products are above threshold."
+        ));
+
+        double totalRevenue = service.getTotalRevenue();
+        return buildReportHtml(
+            "System Dashboard",
+            "Live overview of customers, orders, stock, and revenue",
+            sections,
+            "Total Revenue (KSh)",
+            "KSh " + MONEY_FORMAT.format(totalRevenue)
         );
+    }
+
+    private String buildWelcomeHtml() {
+        List<ReportSection> sections = new ArrayList<>();
+        List<String> introItems = new ArrayList<>();
+        introItems.add("Use the left menu to open each report.");
+        introItems.add("Revenue values are displayed in KSh.");
+        introItems.add("Dashboard refreshes every 30 seconds while connected.");
+        sections.add(new ReportSection("Welcome", introItems, ""));
+
+        return buildReportHtml(
+            "Admin Dashboard",
+            "Professional and aligned reporting workspace",
+            sections,
+            null,
+            null
+        );
+    }
+
+    private String buildConnectionHelpHtml(String errorMessage) {
+        List<ReportSection> sections = new ArrayList<>();
+        List<String> troubleshooting = new ArrayList<>();
+        troubleshooting.add("Confirm the server process is running.");
+        troubleshooting.add("Confirm MySQL is running.");
+        troubleshooting.add("Confirm port 1099 is available.");
+        troubleshooting.add("Use 'Refresh Dashboard' to retry.");
+        sections.add(new ReportSection("Troubleshooting", troubleshooting, ""));
+
+        return buildReportHtml(
+            "Connection Error",
+            normalizeCurrencyText(errorMessage),
+            sections,
+            null,
+            null
+        );
+    }
+
+    private String buildErrorHtml(String title, String detail) {
+        List<ReportSection> sections = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        errors.add(normalizeCurrencyText(detail));
+        sections.add(new ReportSection("Error Details", errors, ""));
+        return buildReportHtml(title, "The report could not be loaded.", sections, null, null);
+    }
+
+    private String buildReportHtml(
+        String title,
+        String subtitle,
+        List<ReportSection> sections,
+        String metricLabel,
+        String metricValue
+    ) {
+        StringBuilder sb = new StringBuilder(4096);
+        sb.append("<html><body style='margin:0;background:#ffffff;font-family:Segoe UI,Arial,sans-serif;color:#1f2d3d;'>");
+        sb.append("<div style='padding:16px 18px;'>");
+        sb.append("<div style='border:1px solid #d8e2f1;background:#f6f9fe;padding:12px 14px;margin-bottom:12px;'>");
+        sb.append("<div style='font-size:20px;font-weight:700;color:#133563;'>").append(escapeHtml(title)).append("</div>");
+        sb.append("<div style='font-size:13px;color:#5b6f8f;margin-top:3px;'>").append(escapeHtml(subtitle)).append("</div>");
+        sb.append("</div>");
+
+        if (metricLabel != null && metricValue != null) {
+            sb.append("<table width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #d8e5ef;margin-bottom:12px;background:#f8fcfa;'>");
+            sb.append("<tr>");
+            sb.append("<td style='padding:12px 14px;'>");
+            sb.append("<div style='font-size:13px;color:#4a5f84;font-weight:600;'>").append(escapeHtml(metricLabel)).append("</div>");
+            sb.append("<div style='font-size:26px;color:#0d7a4a;font-weight:700;margin-top:2px;'>").append(escapeHtml(metricValue)).append("</div>");
+            sb.append("</td>");
+            sb.append("</tr>");
+            sb.append("</table>");
+        }
+
+        if (sections != null) {
+            for (ReportSection section : sections) {
+                appendSectionHtml(sb, section.title, section.items, section.emptyMessage);
+            }
+        }
+
+        sb.append("</div>");
+        sb.append("</body></html>");
         return sb.toString();
     }
 
-    private void appendHeader(StringBuilder sb, String title) {
-        sb.append(title.toUpperCase()).append("\n");
-        sb.append("=".repeat(Math.max(28, title.length() + 8))).append("\n\n");
-    }
-
-    private void appendNumberedSection(
-        StringBuilder sb,
-        String sectionTitle,
-        List<String> items,
-        String emptyMessage
-    ) {
-        sb.append(sectionTitle.toUpperCase()).append("\n");
-        sb.append("-".repeat(Math.max(20, sectionTitle.length() + 4))).append("\n");
+    private void appendSectionHtml(StringBuilder sb, String sectionTitle, List<String> items, String emptyMessage) {
+        sb.append("<table width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #d9e3f1;margin:0 0 12px 0;'>");
+        sb.append("<tr><td style='padding:9px 12px;background:#eef3fb;font-size:13px;font-weight:700;color:#1f3f6d;'>");
+        sb.append(escapeHtml(sectionTitle));
+        sb.append("</td></tr>");
+        sb.append("<tr><td style='padding:10px 12px;'>");
 
         if (items == null || items.isEmpty()) {
-            sb.append("  - ").append(emptyMessage).append("\n\n");
-            return;
+            sb.append("<div style='font-size:13px;color:#667892;'>").append(escapeHtml(emptyMessage)).append("</div>");
+        } else {
+            sb.append("<table width='100%' cellspacing='0' cellpadding='0'>");
+            int width = Math.max(2, String.valueOf(items.size()).length());
+            for (int i = 0; i < items.size(); i++) {
+                String number = String.format("%" + width + "d.", i + 1);
+                sb.append("<tr>");
+                sb.append("<td style='width:42px;padding:4px 0;color:#6b7b94;font-weight:700;vertical-align:top;'>");
+                sb.append(escapeHtml(number));
+                sb.append("</td>");
+                sb.append("<td style='padding:4px 0;color:#1f2d3d;font-size:14px;'>");
+                sb.append(escapeHtml(normalizeCurrencyText(items.get(i))));
+                sb.append("</td>");
+                sb.append("</tr>");
+            }
+            sb.append("</table>");
         }
 
-        for (int i = 0; i < items.size(); i++) {
-            sb.append(String.format("%2d. %s%n", i + 1, items.get(i)));
+        sb.append("</td></tr>");
+        sb.append("</table>");
+    }
+
+    private List<String> normalizeCurrencyList(List<String> items) {
+        if (items == null) {
+            return new ArrayList<>();
         }
-        sb.append("\n");
+        List<String> normalized = new ArrayList<>(items.size());
+        for (String item : items) {
+            normalized.add(normalizeCurrencyText(item));
+        }
+        return normalized;
     }
 
-    private String buildWelcomeText() {
-        StringBuilder sb = new StringBuilder();
-        appendHeader(sb, "Admin Dashboard");
-        sb.append("Use the left menu to open reports:\n");
-        sb.append("  - Customers\n");
-        sb.append("  - Branch Orders\n");
-        sb.append("  - Revenue Per Branch\n");
-        sb.append("  - Total Revenue\n");
-        sb.append("  - Low Stock Alerts\n\n");
-        sb.append("The dashboard refreshes every 30 seconds when connected.\n");
-        return sb.toString();
+    private String normalizeCurrencyText(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = text.replace("$", "KSh ");
+        normalized = normalized.replaceAll("(?i)\\b(ksh|kes)\\b", "KSh");
+        normalized = normalized.replaceAll("KSh\\s+", "KSh ");
+        return normalized.trim();
     }
 
-    private String buildConnectionHelp(String errorMessage) {
-        StringBuilder sb = new StringBuilder();
-        appendHeader(sb, "Connection Error");
-        sb.append("Could not connect to server at localhost:1099.\n\n");
-        sb.append("Error Details:\n");
-        sb.append("  ").append(errorMessage).append("\n\n");
-        sb.append("Troubleshooting:\n");
-        sb.append("  1. Confirm the server process is running.\n");
-        sb.append("  2. Confirm MySQL is running.\n");
-        sb.append("  3. Confirm port 1099 is available.\n");
-        sb.append("  4. Use 'Refresh Dashboard' to retry.\n");
-        return sb.toString();
+    private String escapeHtml(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String escaped = raw
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;");
+        return escaped.replace("\n", "<br/>");
     }
 
     private String now() {
         return TIME_FORMAT.format(new Date());
+    }
+
+    private static class ReportSection {
+        private final String title;
+        private final List<String> items;
+        private final String emptyMessage;
+
+        private ReportSection(String title, List<String> items, String emptyMessage) {
+            this.title = title;
+            this.items = items;
+            this.emptyMessage = emptyMessage;
+        }
     }
 
     @FunctionalInterface

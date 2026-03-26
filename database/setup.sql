@@ -71,3 +71,14 @@ INSERT INTO order_items (order_id, drink_name, quantity, price) VALUES
 (1, 'Coke', 2, 50.00),
 (1, 'Fanta', 1, 45.00),
 (2, 'Pepsi', 2, 48.00);
+
+
+update the from usd to ksh
+-- Update drink prices from USD to KSH
+UPDATE drinks SET price = price * 130;
+
+-- Update order item prices from USD to KSH
+UPDATE order_items SET price = price * 130;
+
+-- Update order total costs from USD to KSH
+UPDATE orders SET total_cost = total_cost * 130;

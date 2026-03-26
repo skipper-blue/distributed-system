@@ -1,8 +1,12 @@
 package common;
 
 import java.io.Serializable;
+import java.text.DecimalFormat;
 
 public class Drink implements Serializable {
+    private static final long serialVersionUID = 2986677574050457488L;
+    private static final DecimalFormat PRICE_FORMAT = new DecimalFormat("#,##0.00");
+
     private int id;
     private String name;
     private double price;
@@ -27,6 +31,6 @@ public class Drink implements Serializable {
 
     @Override
     public String toString() {
-        return name + " - $" + price;
+        return name + " - KSh " + PRICE_FORMAT.format(price);
     }
 }
