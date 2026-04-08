@@ -9,6 +9,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteService {
 
+    private static final List<String> BRANCH_DISPLAY_ORDER = Arrays.asList(
+        "NAIROBI",
+        "NAKURU",
+        "MOMBASA",
+        "KISUMU"
+    );
+
     private final ReentrantLock lock = new ReentrantLock();
 
     protected RemoteServiceImpl() throws RemoteException {
@@ -19,6 +26,10 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
     public String placeOrder(Order order) throws RemoteException {
         lock.lock();
         try {
+            if ("NAIROBI".equalsIgnoreCase(order.branch)) {
+                return "Error: Headquarters (Nairobi) orders are admin-only.";
+            }
+
             Connection conn = DatabaseConnection.getConnection();
             conn.setAutoCommit(false);
 
@@ -140,15 +151,29 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
             Connection conn = DatabaseConnection.getConnection();
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(
-                "SELECT branch, COUNT(*) as order_count FROM orders GROUP BY branch ORDER BY branch");
+                "SELECT branch, COUNT(*) as order_count FROM orders GROUP BY branch");
+
+            Map<String, Integer> ordersByBranch = new LinkedHashMap<>();
+            for (String branch : BRANCH_DISPLAY_ORDER) {
+                ordersByBranch.put(branch, 0);
+            }
 
             while (rs.next()) {
-                report.add(rs.getString("branch") + ": " + rs.getInt("order_count") + " orders");
+                String branch = rs.getString("branch");
+                int count = rs.getInt("order_count");
+                if (!ordersByBranch.containsKey(branch)) {
+                    ordersByBranch.put(branch, 0);
+                }
+                ordersByBranch.put(branch, count);
             }
 
             rs.close();
             stmt.close();
             conn.close();
+
+            for (Map.Entry<String, Integer> entry : ordersByBranch.entrySet()) {
+                report.add(formatLocation(entry.getKey()) + ": " + entry.getValue() + " orders");
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -163,15 +188,29 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
             Connection conn = DatabaseConnection.getConnection();
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(
-                "SELECT branch, SUM(total_cost) as revenue FROM orders GROUP BY branch ORDER BY branch");
+                "SELECT branch, SUM(total_cost) as revenue FROM orders GROUP BY branch");
+
+            Map<String, Double> revenueByBranch = new LinkedHashMap<>();
+            for (String branch : BRANCH_DISPLAY_ORDER) {
+                revenueByBranch.put(branch, 0.0);
+            }
 
             while (rs.next()) {
-                revenues.add(rs.getString("branch") + ": KSH" + rs.getDouble("revenue"));
+                String branch = rs.getString("branch");
+                double revenue = rs.getDouble("revenue");
+                if (!revenueByBranch.containsKey(branch)) {
+                    revenueByBranch.put(branch, 0.0);
+                }
+                revenueByBranch.put(branch, revenue);
             }
 
             rs.close();
             stmt.close();
             conn.close();
+
+            for (Map.Entry<String, Double> entry : revenueByBranch.entrySet()) {
+                revenues.add(formatLocation(entry.getKey()) + ": KSH" + entry.getValue());
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -216,7 +255,7 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
                 "WHERE s.quantity < s.threshold ORDER BY s.branch, d.name");
 
             while (rs.next()) {
-                alerts.add("LOW STOCK: " + rs.getString("branch") + " - " + rs.getString("name") +
+                alerts.add("LOW STOCK: " + formatLocation(rs.getString("branch")) + " - " + rs.getString("name") +
                           " (Quantity: " + rs.getInt("quantity") + ", Threshold: " + rs.getInt("threshold") + ")");
             }
 
@@ -250,5 +289,15 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
             e.printStackTrace();
         }
         return drinks;
+    }
+
+    private String formatLocation(String locationCode) {
+        if (locationCode == null) {
+            return "";
+        }
+        if ("NAIROBI".equalsIgnoreCase(locationCode)) {
+            return "HEADQUARTERS (NAIROBI)";
+        }
+        return locationCode.toUpperCase();
     }
 }

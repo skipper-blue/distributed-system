@@ -14,6 +14,7 @@ import java.rmi.registry.Registry;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Timer;
@@ -33,19 +34,25 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.plaf.basic.BasicButtonUI;
 
 public class AdminClient extends JFrame {
-    private static final Color APP_BACKGROUND = new Color(234, 241, 250);
-    private static final Color CARD_BACKGROUND = new Color(255, 255, 255);
-    private static final Color HEADER_TEXT = new Color(18, 40, 74);
-    private static final Color BODY_TEXT = new Color(30, 43, 62);
-    private static final Color STATUS_OK = new Color(14, 120, 72);
-    private static final Color STATUS_PENDING = new Color(129, 83, 28);
-    private static final Color STATUS_ERROR = new Color(179, 46, 46);
-    private static final Color NAV_TEXT = new Color(31, 51, 82);
-    private static final Color NAV_ACTIVE_TEXT = new Color(13, 54, 111);
-    private static final Color NAV_ACTIVE_BG = new Color(216, 232, 252);
-    private static final Color NAV_ACTIVE_BORDER = new Color(69, 126, 208);
+    private static final String SERVER_HOST = System.getProperty(
+        "server.host",
+        System.getenv().getOrDefault("DRINKS_SERVER_HOST", "localhost")
+    );
+    private static final String MAIN_BRANCH = "NAIROBI";
+    private static final Color APP_BACKGROUND = new Color(11, 24, 42);
+    private static final Color CARD_BACKGROUND = new Color(19, 38, 64);
+    private static final Color HEADER_TEXT = new Color(228, 239, 255);
+    private static final Color BODY_TEXT = new Color(215, 229, 249);
+    private static final Color STATUS_OK = new Color(73, 203, 145);
+    private static final Color STATUS_PENDING = new Color(234, 187, 94);
+    private static final Color STATUS_ERROR = new Color(242, 130, 130);
+    private static final Color NAV_TEXT = new Color(207, 224, 246);
+    private static final Color NAV_ACTIVE_TEXT = new Color(240, 249, 255);
+    private static final Color NAV_ACTIVE_BG = new Color(17, 122, 190);
+    private static final Color NAV_ACTIVE_BORDER = new Color(84, 202, 245);
     private static final DecimalFormat MONEY_FORMAT = new DecimalFormat("#,##0.00");
     private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss");
 
@@ -70,7 +77,7 @@ public class AdminClient extends JFrame {
     }
 
     private void initializeUI() {
-        setTitle("Distributed Drinks System - Admin Dashboard");
+        setTitle("Distributed Drinks System - Admin Dashboard (Headquarters)");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(1220, 780));
 
@@ -108,9 +115,9 @@ public class AdminClient extends JFrame {
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         titleLabel.setForeground(HEADER_TEXT);
 
-        JLabel subtitleLabel = new JLabel("Operations and branch analytics");
+        JLabel subtitleLabel = new JLabel("Headquarters (Nairobi) operations and analytics");
         subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        subtitleLabel.setForeground(new Color(71, 89, 118));
+        subtitleLabel.setForeground(new Color(166, 192, 224));
 
         textWrap.add(titleLabel);
         textWrap.add(Box.createVerticalStrut(2));
@@ -120,15 +127,29 @@ public class AdminClient extends JFrame {
         statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         statusLabel.setForeground(STATUS_PENDING);
         statusLabel.setOpaque(true);
-        statusLabel.setBackground(new Color(248, 238, 222));
+        statusLabel.setBackground(new Color(54, 68, 89));
         statusLabel.setBorder(
             BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(228, 196, 140), 1),
+                BorderFactory.createLineBorder(new Color(107, 124, 148), 1),
                 BorderFactory.createEmptyBorder(6, 10, 6, 10)
             )
         );
 
+        JLabel mainSiteLabel = new JLabel("Headquarters: Nairobi");
+        mainSiteLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        mainSiteLabel.setForeground(new Color(229, 246, 255));
+        mainSiteLabel.setOpaque(true);
+        mainSiteLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        mainSiteLabel.setBackground(new Color(19, 122, 164));
+        mainSiteLabel.setBorder(
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(92, 206, 238), 1),
+                BorderFactory.createEmptyBorder(6, 12, 6, 12)
+            )
+        );
+
         card.add(textWrap, BorderLayout.WEST);
+        card.add(mainSiteLabel, BorderLayout.CENTER);
         card.add(statusLabel, BorderLayout.EAST);
         return card;
     }
@@ -138,9 +159,9 @@ public class AdminClient extends JFrame {
         card.setPreferredSize(new Dimension(270, 470));
         card.setLayout(new BorderLayout(0, 12));
 
-        JLabel menuTitle = new JLabel("Reports");
+        JLabel menuTitle = new JLabel("Headquarters (Nairobi) - Reports");
         menuTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        menuTitle.setForeground(new Color(52, 71, 102));
+        menuTitle.setForeground(new Color(174, 198, 230));
         menuTitle.setBorder(new EmptyBorder(0, 4, 2, 0));
         card.add(menuTitle, BorderLayout.NORTH);
 
@@ -148,11 +169,11 @@ public class AdminClient extends JFrame {
         reportButtons.setOpaque(false);
         reportButtons.setLayout(new BoxLayout(reportButtons, BoxLayout.Y_AXIS));
 
-        customersButton = createNavButton("Customers", new Color(230, 240, 252), new Color(156, 184, 219), this::showCustomers);
-        branchReportButton = createNavButton("Branch Orders", new Color(231, 242, 252), new Color(156, 184, 219), this::showBranchReport);
-        revenueBranchButton = createNavButton("Revenue Per Branch", new Color(231, 245, 246), new Color(150, 190, 192), this::showRevenuePerBranch);
-        totalRevenueButton = createNavButton("Total Revenue", new Color(231, 246, 238), new Color(151, 194, 168), this::showTotalRevenue);
-        lowStockButton = createNavButton("Low Stock Alerts", new Color(251, 237, 234), new Color(212, 160, 150), this::showLowStockAlerts);
+        customersButton = createNavButton("Customers", new Color(35, 63, 95), new Color(77, 116, 160), this::showCustomers);
+        branchReportButton = createNavButton("Orders by Location", new Color(37, 68, 98), new Color(77, 116, 160), this::showBranchReport);
+        revenueBranchButton = createNavButton("Revenue by Location", new Color(37, 72, 92), new Color(75, 120, 149), this::showRevenuePerBranch);
+        totalRevenueButton = createNavButton("Total Revenue", new Color(33, 74, 82), new Color(75, 130, 140), this::showTotalRevenue);
+        lowStockButton = createNavButton("Low Stock Alerts", new Color(79, 58, 68), new Color(148, 107, 122), this::showLowStockAlerts);
 
         addNavButton(reportButtons, customersButton);
         addNavButton(reportButtons, branchReportButton);
@@ -165,8 +186,8 @@ public class AdminClient extends JFrame {
         utilityButtons.setOpaque(false);
         utilityButtons.setLayout(new BoxLayout(utilityButtons, BoxLayout.Y_AXIS));
 
-        refreshButton = createNavButton("Refresh Dashboard", new Color(238, 242, 248), new Color(168, 178, 194), this::refreshConnectionOrDashboard);
-        exitButton = createNavButton("Exit", new Color(238, 242, 248), new Color(168, 178, 194), () -> System.exit(0));
+        refreshButton = createNavButton("Refresh Dashboard", new Color(40, 59, 86), new Color(96, 125, 163), this::refreshConnectionOrDashboard);
+        exitButton = createNavButton("Exit", new Color(58, 60, 83), new Color(128, 131, 161), () -> System.exit(0));
         addNavButton(utilityButtons, refreshButton);
         addNavButton(utilityButtons, exitButton);
 
@@ -199,9 +220,9 @@ public class AdminClient extends JFrame {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         card.add(scrollPane, BorderLayout.CENTER);
 
-        JLabel hint = new JLabel("Auto refresh: every 30 seconds while connected.");
+        JLabel hint = new JLabel("Headquarters pinned first | Auto refresh every 30 seconds while connected.");
         hint.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        hint.setForeground(new Color(79, 94, 117));
+        hint.setForeground(new Color(151, 177, 209));
         card.add(hint, BorderLayout.SOUTH);
 
         return card;
@@ -212,7 +233,7 @@ public class AdminClient extends JFrame {
         panel.setBackground(CARD_BACKGROUND);
         panel.setBorder(
             BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(210, 221, 238), 1),
+                BorderFactory.createLineBorder(new Color(62, 91, 123), 1),
                 new EmptyBorder(14, 14, 14, 14)
             )
         );
@@ -221,10 +242,13 @@ public class AdminClient extends JFrame {
 
     private JButton createNavButton(String text, Color background, Color borderColor, Runnable action) {
         JButton button = new JButton(text);
+        button.setUI(new BasicButtonUI());
         button.setFont(new Font("Segoe UI", Font.BOLD, 13));
         button.setForeground(NAV_TEXT);
         button.setBackground(background);
         button.setFocusPainted(false);
+        button.setContentAreaFilled(true);
+        button.setBorderPainted(true);
         button.setOpaque(true);
         button.putClientProperty("defaultBg", background);
         button.putClientProperty("defaultBorder", borderColor);
@@ -279,7 +303,7 @@ public class AdminClient extends JFrame {
     private void connectToServer() {
         updateStatus("Connecting to server...", STATUS_PENDING);
         try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+            Registry registry = LocateRegistry.getRegistry(SERVER_HOST, 1099);
             service = (RemoteService) registry.lookup("DrinkService");
 
             isConnected = true;
@@ -350,26 +374,26 @@ public class AdminClient extends JFrame {
         statusLabel.setText(status + " | Last refresh: " + now());
         statusLabel.setForeground(color);
         if (STATUS_OK.equals(color)) {
-            statusLabel.setBackground(new Color(229, 247, 236));
+            statusLabel.setBackground(new Color(24, 84, 63));
             statusLabel.setBorder(
                 BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(137, 196, 166), 1),
+                    BorderFactory.createLineBorder(new Color(78, 171, 133), 1),
                     BorderFactory.createEmptyBorder(6, 10, 6, 10)
                 )
             );
         } else if (STATUS_ERROR.equals(color)) {
-            statusLabel.setBackground(new Color(253, 235, 235));
+            statusLabel.setBackground(new Color(90, 47, 56));
             statusLabel.setBorder(
                 BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(231, 166, 166), 1),
+                    BorderFactory.createLineBorder(new Color(206, 117, 135), 1),
                     BorderFactory.createEmptyBorder(6, 10, 6, 10)
                 )
             );
         } else {
-            statusLabel.setBackground(new Color(248, 238, 222));
+            statusLabel.setBackground(new Color(79, 63, 35));
             statusLabel.setBorder(
                 BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(228, 196, 140), 1),
+                    BorderFactory.createLineBorder(new Color(197, 155, 87), 1),
                     BorderFactory.createEmptyBorder(6, 10, 6, 10)
                 )
             );
@@ -412,38 +436,38 @@ public class AdminClient extends JFrame {
 
     private void showBranchReport() {
         setActiveNavButton(branchReportButton);
-        runReport("Loading branch report...", () -> {
+        runReport("Loading location report...", () -> {
             List<ReportSection> sections = new ArrayList<>();
             sections.add(new ReportSection(
-                "Orders Per Branch",
-                normalizeCurrencyList(service.getBranchReport()),
+                "Orders by Location",
+                prioritizeNairobi(normalizeCurrencyList(service.getBranchReport())),
                 "No orders placed yet."
             ));
             return buildReportHtml(
-                "Branch Orders",
-                "Order count and activity by branch",
+                "Orders by Location",
+                "Order count and activity by location (Headquarters pinned first)",
                 sections,
-                null,
-                null
+                "Headquarters",
+                "Nairobi"
             );
         });
     }
 
     private void showRevenuePerBranch() {
         setActiveNavButton(revenueBranchButton);
-        runReport("Loading branch revenue...", () -> {
+        runReport("Loading location revenue...", () -> {
             List<ReportSection> sections = new ArrayList<>();
             sections.add(new ReportSection(
-                "Revenue Per Branch (KSh)",
-                normalizeCurrencyList(service.getRevenuePerBranch()),
+                "Revenue by Location (KSh)",
+                prioritizeNairobi(normalizeCurrencyList(service.getRevenuePerBranch())),
                 "No revenue data available."
             ));
             return buildReportHtml(
-                "Revenue Per Branch (KSh)",
-                "Revenue performance by location",
+                "Revenue by Location (KSh)",
+                "Revenue performance by location (Headquarters pinned first)",
                 sections,
-                null,
-                null
+                "Headquarters",
+                "Nairobi"
             );
         });
     }
@@ -516,13 +540,13 @@ public class AdminClient extends JFrame {
             "No customers registered yet."
         ));
         sections.add(new ReportSection(
-            "Orders Per Branch",
-            normalizeCurrencyList(service.getBranchReport()),
+            "Orders by Location",
+            prioritizeNairobi(normalizeCurrencyList(service.getBranchReport())),
             "No orders placed yet."
         ));
         sections.add(new ReportSection(
-            "Revenue Per Branch (KSh)",
-            normalizeCurrencyList(service.getRevenuePerBranch()),
+            "Revenue by Location (KSh)",
+            prioritizeNairobi(normalizeCurrencyList(service.getRevenuePerBranch())),
             "No revenue data available."
         ));
         sections.add(new ReportSection(
@@ -534,7 +558,7 @@ public class AdminClient extends JFrame {
         double totalRevenue = service.getTotalRevenue();
         return buildReportHtml(
             "System Dashboard",
-            "Live overview of customers, orders, stock, and revenue",
+            "Live overview of customers, orders, stock, and revenue (Headquarters pinned first)",
             sections,
             "Total Revenue (KSh)",
             "KSh " + MONEY_FORMAT.format(totalRevenue)
@@ -546,12 +570,13 @@ public class AdminClient extends JFrame {
         List<String> introItems = new ArrayList<>();
         introItems.add("Use the left menu to open each report.");
         introItems.add("Revenue values are displayed in KSh.");
+        introItems.add("Headquarters (Nairobi) is pinned first in location reports.");
         introItems.add("Dashboard refreshes every 30 seconds while connected.");
         sections.add(new ReportSection("Welcome", introItems, ""));
 
         return buildReportHtml(
             "Admin Dashboard",
-            "Professional and aligned reporting workspace",
+            "Modern reporting workspace with Nairobi as headquarters",
             sections,
             null,
             null
@@ -592,19 +617,19 @@ public class AdminClient extends JFrame {
         String metricValue
     ) {
         StringBuilder sb = new StringBuilder(4096);
-        sb.append("<html><body style='margin:0;background:#ffffff;font-family:Segoe UI,Arial,sans-serif;color:#1f2d3d;'>");
+        sb.append("<html><body style='margin:0;background:#0f213c;font-family:Segoe UI,Arial,sans-serif;color:#e6f1ff;'>");
         sb.append("<div style='padding:18px 20px 16px 20px;'>");
-        sb.append("<div style='border:1px solid #d4e0f1;background:#f5f9ff;padding:14px 16px;margin-bottom:14px;'>");
-        sb.append("<div style='font-size:21px;font-weight:700;color:#163d73;'>").append(escapeHtml(title)).append("</div>");
-        sb.append("<div style='font-size:13px;color:#5f7393;margin-top:4px;'>").append(escapeHtml(subtitle)).append("</div>");
+        sb.append("<div style='border:1px solid #436891;background:#173256;padding:14px 16px;margin-bottom:14px;'>");
+        sb.append("<div style='font-size:21px;font-weight:700;color:#e8f3ff;'>").append(escapeHtml(title)).append("</div>");
+        sb.append("<div style='font-size:13px;color:#9cc1e8;margin-top:4px;'>").append(escapeHtml(subtitle)).append("</div>");
         sb.append("</div>");
 
         if (metricLabel != null && metricValue != null) {
-            sb.append("<table width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #d4e8da;margin-bottom:14px;background:#f7fcf8;'>");
+            sb.append("<table width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #2f8f8f;margin-bottom:14px;background:#113a43;'>");
             sb.append("<tr>");
             sb.append("<td style='padding:14px 16px;'>");
-            sb.append("<div style='font-size:13px;color:#385d6f;font-weight:700;'>").append(escapeHtml(metricLabel)).append("</div>");
-            sb.append("<div style='font-size:26px;color:#0e7a4b;font-weight:700;margin-top:4px;'>").append(escapeHtml(metricValue)).append("</div>");
+            sb.append("<div style='font-size:13px;color:#8fcfd8;font-weight:700;'>").append(escapeHtml(metricLabel)).append("</div>");
+            sb.append("<div style='font-size:26px;color:#63e5c4;font-weight:700;margin-top:4px;'>").append(escapeHtml(metricValue)).append("</div>");
             sb.append("</td>");
             sb.append("</tr>");
             sb.append("</table>");
@@ -622,24 +647,24 @@ public class AdminClient extends JFrame {
     }
 
     private void appendSectionHtml(StringBuilder sb, String sectionTitle, List<String> items, String emptyMessage) {
-        sb.append("<table width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #d7e2f2;margin:0 0 14px 0;'>");
-        sb.append("<tr><td style='padding:10px 14px;background:#edf3fd;font-size:13px;font-weight:700;color:#1f4274;'>");
+        sb.append("<table width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #3a648d;margin:0 0 14px 0;background:#122a48;'>");
+        sb.append("<tr><td style='padding:10px 14px;background:#1e3f68;font-size:13px;font-weight:700;color:#e8f3ff;'>");
         sb.append(escapeHtml(sectionTitle));
         sb.append("</td></tr>");
         sb.append("<tr><td style='padding:10px 14px;'>");
 
         if (items == null || items.isEmpty()) {
-            sb.append("<div style='font-size:13px;color:#5f7594;padding:4px 0 6px 0;'>").append(escapeHtml(emptyMessage)).append("</div>");
+            sb.append("<div style='font-size:13px;color:#9ab9de;padding:4px 0 6px 0;'>").append(escapeHtml(emptyMessage)).append("</div>");
         } else {
             sb.append("<table width='100%' cellspacing='0' cellpadding='0'>");
             int width = Math.max(2, String.valueOf(items.size()).length());
             for (int i = 0; i < items.size(); i++) {
                 String number = String.format("%" + width + "d.", i + 1);
                 sb.append("<tr>");
-                sb.append("<td style='width:42px;padding:7px 0;border-bottom:1px solid #edf2fb;color:#6b7b94;font-weight:700;vertical-align:top;'>");
+                sb.append("<td style='width:42px;padding:7px 0;border-bottom:1px solid #28466d;color:#8fb3dd;font-weight:700;vertical-align:top;'>");
                 sb.append(escapeHtml(number));
                 sb.append("</td>");
-                sb.append("<td style='padding:7px 0;border-bottom:1px solid #edf2fb;color:#1f2d3d;font-size:14px;'>");
+                sb.append("<td style='padding:7px 0;border-bottom:1px solid #28466d;color:#e5f2ff;font-size:14px;'>");
                 sb.append(escapeHtml(normalizeCurrencyText(items.get(i))));
                 sb.append("</td>");
                 sb.append("</tr>");
@@ -660,6 +685,36 @@ public class AdminClient extends JFrame {
             normalized.add(normalizeCurrencyText(item));
         }
         return normalized;
+    }
+
+    private List<String> prioritizeNairobi(List<String> items) {
+        if (items == null) {
+            return new ArrayList<>();
+        }
+        List<String> sorted = new ArrayList<>(items);
+        Collections.sort(sorted, (left, right) -> {
+            boolean leftIsMain = startsWithBranch(left, MAIN_BRANCH);
+            boolean rightIsMain = startsWithBranch(right, MAIN_BRANCH);
+
+            if (leftIsMain && !rightIsMain) {
+                return -1;
+            }
+            if (!leftIsMain && rightIsMain) {
+                return 1;
+            }
+            return left.compareToIgnoreCase(right);
+        });
+        return sorted;
+    }
+
+    private boolean startsWithBranch(String row, String branch) {
+        if (row == null || branch == null) {
+            return false;
+        }
+        String normalized = row.trim().toUpperCase();
+        return normalized.startsWith(branch.toUpperCase())
+            || normalized.startsWith("HEADQUARTERS")
+            || normalized.contains("(NAIROBI)");
     }
 
     private String normalizeCurrencyText(String text) {
@@ -708,7 +763,7 @@ public class AdminClient extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(null, "Look and feel setup failed: " + e.getMessage());
             }
