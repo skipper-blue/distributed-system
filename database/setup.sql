@@ -97,11 +97,3 @@ INSERT INTO order_items (order_id, drink_name, quantity, price) VALUES
 (2, 'Pepsi', 2, 48.00);
 
 
--- Currency normalization helper for older USD-based seed data
-UPDATE drinks SET price = price * 130;
-
--- Update order item prices from USD to KSH
-UPDATE order_items SET price = price * 130;
-
--- Update order total costs from USD to KSH
-UPDATE orders SET total_cost = total_cost * 130;
