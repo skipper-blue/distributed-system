@@ -5,14 +5,14 @@ CREATE DATABASE IF NOT EXISTS drinks_system;
 USE drinks_system;
 
 -- Drinks table
-CREATE TABLE drinks (
+CREATE TABLE IF NOT EXISTS drinks (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL UNIQUE,
     price DECIMAL(10,2) NOT NULL
 );
 
 -- Stock table (per branch)
-CREATE TABLE stock (
+CREATE TABLE IF NOT EXISTS stock (
     id INT PRIMARY KEY AUTO_INCREMENT,
     branch VARCHAR(50) NOT NULL,
     drink_id INT NOT NULL,
@@ -22,8 +22,32 @@ CREATE TABLE stock (
     UNIQUE KEY unique_branch_drink (branch, drink_id)
 );
 
+-- Restock audit table
+CREATE TABLE IF NOT EXISTS restocks (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    drink_id INT NOT NULL,
+    branch VARCHAR(50) NOT NULL,
+    quantity_added INT NOT NULL,
+    restock_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (drink_id) REFERENCES drinks(id),
+    INDEX idx_restocks_branch_date (branch, restock_date),
+    INDEX idx_restocks_drink_date (drink_id, restock_date)
+);
+
+-- Stock transfer tracking (Nairobi → branches)
+CREATE TABLE IF NOT EXISTS stock_transfers (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    drink_id INT NOT NULL,
+    from_branch VARCHAR(50),
+    to_branch VARCHAR(50),
+    quantity INT NOT NULL,
+    transfer_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (drink_id) REFERENCES drinks(id),
+    INDEX idx_transfers_date (transfer_date)
+);
+
 -- Orders table
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id INT PRIMARY KEY AUTO_INCREMENT,
     customer_name VARCHAR(100) NOT NULL,
     branch VARCHAR(50) NOT NULL,
@@ -32,7 +56,7 @@ CREATE TABLE orders (
 );
 
 -- Order items table
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     id INT PRIMARY KEY AUTO_INCREMENT,
     order_id INT NOT NULL,
     drink_name VARCHAR(100) NOT NULL,
@@ -73,8 +97,7 @@ INSERT INTO order_items (order_id, drink_name, quantity, price) VALUES
 (2, 'Pepsi', 2, 48.00);
 
 
-update the from usd to ksh
--- Update drink prices from USD to KSH
+-- Currency normalization helper for older USD-based seed data
 UPDATE drinks SET price = price * 130;
 
 -- Update order item prices from USD to KSH

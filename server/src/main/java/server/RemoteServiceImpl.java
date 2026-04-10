@@ -291,6 +291,360 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
         return drinks;
     }
 
+    @Override
+    public String restockBranch(String branch, String drinkName, int quantity) throws RemoteException {
+        lock.lock();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+
+            int drinkId = findDrinkIdByName(conn, drinkName);
+            if (drinkId == -1) {
+                conn.rollback();
+                return "Error: Drink " + drinkName + " not found.";
+            }
+
+            String result = executeRestockTransfer(conn, branch, drinkId, quantity);
+            if (result.startsWith("Error:")) {
+                conn.rollback();
+                return result;
+            }
+
+            conn.commit();
+            return result;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return "Database error: " + e.getMessage();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean restockDrink(String branch, int drinkId, int quantity) throws RemoteException {
+        lock.lock();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+
+            String result = executeRestockTransfer(conn, branch, drinkId, quantity);
+            if (result.startsWith("Error:")) {
+                conn.rollback();
+                return false;
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public List<String> getRestockHistory() throws RemoteException {
+        List<String> history = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(
+                 "SELECT r.restock_date, d.name, r.branch, r.quantity_added " +
+                 "FROM restocks r JOIN drinks d ON r.drink_id = d.id " +
+                 "ORDER BY r.restock_date DESC, r.id DESC LIMIT 100")) {
+
+            while (rs.next()) {
+                history.add(
+                    rs.getTimestamp("restock_date") + "\t"
+                    + formatLocation(rs.getString("branch")) + "\t"
+                    + rs.getString("name") + "\t"
+                    + rs.getInt("quantity_added")
+                );
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return history;
+    }
+
+    @Override
+    public Map<String, Integer> getStockByBranch(int drinkId) throws RemoteException {
+        Map<String, Integer> stockByBranch = new LinkedHashMap<>();
+        for (String branch : BRANCH_DISPLAY_ORDER) {
+            stockByBranch.put(formatLocation(branch), 0);
+        }
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT branch, quantity FROM stock WHERE drink_id = ?")) {
+            ps.setInt(1, drinkId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    stockByBranch.put(formatLocation(rs.getString("branch")), rs.getInt("quantity"));
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return stockByBranch;
+    }
+
+    @Override
+    public boolean restockMainBranch(int drinkId, int quantity) throws RemoteException {
+        if (quantity <= 0) {
+            return false;
+        }
+
+        lock.lock();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+
+            String sql = "UPDATE stock SET quantity = quantity + ? WHERE drink_id = ? AND branch = 'NAIROBI'";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, quantity);
+                ps.setInt(2, drinkId);
+                int updated = ps.executeUpdate();
+
+                if (updated == 0) {
+                    conn.rollback();
+                    return false;
+                }
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean distributeStock(String toBranch, int drinkId, int quantity) throws RemoteException {
+        if (quantity <= 0) {
+            return false;
+        }
+        if (toBranch == null || toBranch.equalsIgnoreCase("NAIROBI")) {
+            return false;
+        }
+
+        lock.lock();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+
+            // Check Nairobi stock
+            String checkSql = "SELECT quantity FROM stock WHERE drink_id = ? AND branch = 'NAIROBI'";
+            int nairobiStock;
+            try (PreparedStatement checkPs = conn.prepareStatement(checkSql)) {
+                checkPs.setInt(1, drinkId);
+                try (ResultSet rs = checkPs.executeQuery()) {
+                    if (!rs.next()) {
+                        conn.rollback();
+                        return false;
+                    }
+                    nairobiStock = rs.getInt("quantity");
+                }
+            }
+
+            if (nairobiStock < quantity) {
+                conn.rollback();
+                return false;
+            }
+
+            // Deduct from Nairobi
+            String deductSql = "UPDATE stock SET quantity = quantity - ? WHERE drink_id = ? AND branch = 'NAIROBI'";
+            try (PreparedStatement deductPs = conn.prepareStatement(deductSql)) {
+                deductPs.setInt(1, quantity);
+                deductPs.setInt(2, drinkId);
+                deductPs.executeUpdate();
+            }
+
+            // Add to target branch
+            String addSql = "UPDATE stock SET quantity = quantity + ? WHERE drink_id = ? AND branch = ?";
+            try (PreparedStatement addPs = conn.prepareStatement(addSql)) {
+                addPs.setInt(1, quantity);
+                addPs.setInt(2, drinkId);
+                addPs.setString(3, toBranch.toUpperCase());
+                addPs.executeUpdate();
+            }
+
+            // Log transfer
+            String logSql = "INSERT INTO stock_transfers (drink_id, from_branch, to_branch, quantity) VALUES (?, 'NAIROBI', ?, ?)";
+            try (PreparedStatement logPs = conn.prepareStatement(logSql)) {
+                logPs.setInt(1, drinkId);
+                logPs.setString(2, toBranch.toUpperCase());
+                logPs.setInt(3, quantity);
+                logPs.executeUpdate();
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public List<String> getDistributionHistory() throws RemoteException {
+        List<String> history = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(
+                 "SELECT st.transfer_date, d.name, st.from_branch, st.to_branch, st.quantity " +
+                 "FROM stock_transfers st JOIN drinks d ON st.drink_id = d.id " +
+                 "ORDER BY st.transfer_date DESC")) {
+
+            while (rs.next()) {
+                history.add(rs.getTimestamp("transfer_date") + " - " + rs.getString("name") + " - " +
+                            formatLocation(rs.getString("from_branch")) + " → " +
+                            formatLocation(rs.getString("to_branch")) + " - " + rs.getInt("quantity") + " units");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return history;
+    }
+
+    private int findDrinkIdByName(Connection conn, String drinkName) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM drinks WHERE name = ?")) {
+            ps.setString(1, drinkName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id");
+                }
+            }
+        }
+        return -1;
+    }
+
+    private String findDrinkNameById(Connection conn, int drinkId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT name FROM drinks WHERE id = ?")) {
+            ps.setInt(1, drinkId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("name");
+                }
+            }
+        }
+        return null;
+    }
+
+    private int getStockQuantity(Connection conn, String branch, int drinkId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+            "SELECT quantity FROM stock WHERE branch = ? AND drink_id = ?")) {
+            ps.setString(1, branch);
+            ps.setInt(2, drinkId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("quantity");
+                }
+            }
+        }
+        return 0;
+    }
+
+    private int updateStock(Connection conn, String branch, int drinkId, int delta) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+            "UPDATE stock SET quantity = quantity + ? WHERE branch = ? AND drink_id = ?")) {
+            ps.setInt(1, delta);
+            ps.setString(2, branch);
+            ps.setInt(3, drinkId);
+            return ps.executeUpdate();
+        }
+    }
+
+    private void insertRestockRecord(Connection conn, int drinkId, String branch, int quantity) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+            "INSERT INTO restocks (drink_id, branch, quantity_added) VALUES (?, ?, ?)") ) {
+            ps.setInt(1, drinkId);
+            ps.setString(2, branch);
+            ps.setInt(3, quantity);
+            ps.executeUpdate();
+        }
+    }
+
+    private boolean updateBranchStockAndLog(Connection conn, String branch, int drinkId, int quantity) throws SQLException {
+        int rowsAffected = updateStock(conn, branch, drinkId, quantity);
+        if (rowsAffected == 0) {
+            return false;
+        }
+        insertRestockRecord(conn, drinkId, branch, quantity);
+        return true;
+    }
+
+    private String executeRestockTransfer(Connection conn, String branch, int drinkId, int quantity) throws SQLException {
+        String normalizedBranch = normalizeBranch(branch);
+        if (quantity <= 0) {
+            return "Error: Quantity must be positive.";
+        }
+        if ("NAIROBI".equals(normalizedBranch)) {
+            return "Error: Cannot restock Headquarters.";
+        }
+
+        String drinkName = findDrinkNameById(conn, drinkId);
+        if (drinkName == null) {
+            return "Error: Drink with ID " + drinkId + " not found.";
+        }
+
+        int hqStock = getStockQuantity(conn, "NAIROBI", drinkId);
+        if (hqStock < quantity) {
+            return "Error: Insufficient stock at Headquarters. Available: " + hqStock;
+        }
+
+        int hqUpdateCount = updateStock(conn, "NAIROBI", drinkId, -quantity);
+        if (hqUpdateCount == 0) {
+            return "Error: Failed to decrement Headquarters stock for " + drinkName;
+        }
+
+        boolean branchUpdated = updateBranchStockAndLog(conn, normalizedBranch, drinkId, quantity);
+        if (!branchUpdated) {
+            return "Error: Branch " + normalizedBranch + " does not have stock entry for " + drinkName;
+        }
+
+        return "Restocked " + quantity + " units of " + drinkName + " to " + formatLocation(normalizedBranch) + " successfully.";
+    }
+
+    @Override
+    public List<String> getAllStockLevels() throws RemoteException {
+        List<String> stockLevels = new ArrayList<>();
+        try {
+            Connection conn = DatabaseConnection.getConnection();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(
+                "SELECT s.branch, d.name as drink_name, s.quantity, s.threshold " +
+                "FROM stock s JOIN drinks d ON s.drink_id = d.id " +
+                "ORDER BY FIELD(s.branch, 'NAIROBI', 'NAKURU', 'MOMBASA', 'KISUMU'), d.name");
+
+            while (rs.next()) {
+                String branch = rs.getString("branch");
+                String drinkName = rs.getString("drink_name");
+                int quantity = rs.getInt("quantity");
+                int threshold = rs.getInt("threshold");
+                String status = quantity < threshold ? "LOW" : "OK";
+                stockLevels.add(formatLocation(branch) + "\t" + drinkName + "\t" + quantity + "\t" + threshold + "\t" + status);
+            }
+
+            rs.close();
+            stmt.close();
+            conn.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return stockLevels;
+    }
+
     private String formatLocation(String locationCode) {
         if (locationCode == null) {
             return "";
@@ -299,5 +653,15 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteServ
             return "HEADQUARTERS (NAIROBI)";
         }
         return locationCode.toUpperCase();
+    }
+
+    private String normalizeBranch(String branch) {
+        if (branch == null) {
+            return "";
+        }
+        if (branch.toUpperCase().contains("NAIROBI")) {
+            return "NAIROBI";
+        }
+        return branch.trim().toUpperCase();
     }
 }

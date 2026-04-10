@@ -1,11 +1,13 @@
 package client;
 
+import common.Drink;
 import common.RemoteService;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -22,17 +24,26 @@ import java.util.TimerTask;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
 
@@ -64,6 +75,11 @@ public class AdminClient extends JFrame {
     private JButton revenueBranchButton;
     private JButton totalRevenueButton;
     private JButton lowStockButton;
+    private JButton restockButton;
+    private JButton restockHistoryButton;
+    private JButton restockNairobiButton;
+    private JButton distributeStockButton;
+    private JButton distributionHistoryButton;
     private JButton refreshButton;
     private JButton exitButton;
     private JButton activeNavButton;
@@ -174,12 +190,22 @@ public class AdminClient extends JFrame {
         revenueBranchButton = createNavButton("Revenue by Location", new Color(37, 72, 92), new Color(75, 120, 149), this::showRevenuePerBranch);
         totalRevenueButton = createNavButton("Total Revenue", new Color(33, 74, 82), new Color(75, 130, 140), this::showTotalRevenue);
         lowStockButton = createNavButton("Low Stock Alerts", new Color(79, 58, 68), new Color(148, 107, 122), this::showLowStockAlerts);
+        restockButton = createNavButton("Restock Branch", new Color(60, 80, 100), new Color(120, 140, 160), this::showRestockDialog);
+        restockHistoryButton = createNavButton("Restock History", new Color(60, 90, 95), new Color(110, 155, 160), this::showRestockHistory);
+        restockNairobiButton = createNavButton("Restock Nairobi", new Color(85, 65, 45), new Color(168, 123, 85), this::showRestockNairobi);
+        distributeStockButton = createNavButton("Distribute Stock", new Color(50, 85, 75), new Color(95, 165, 145), this::showDistributeStock);
+        distributionHistoryButton = createNavButton("Distribution History", new Color(55, 80, 90), new Color(110, 150, 170), this::showDistributionHistory);
 
         addNavButton(reportButtons, customersButton);
         addNavButton(reportButtons, branchReportButton);
         addNavButton(reportButtons, revenueBranchButton);
         addNavButton(reportButtons, totalRevenueButton);
         addNavButton(reportButtons, lowStockButton);
+        addNavButton(reportButtons, restockButton);
+        addNavButton(reportButtons, restockHistoryButton);
+        addNavButton(reportButtons, restockNairobiButton);
+        addNavButton(reportButtons, distributeStockButton);
+        addNavButton(reportButtons, distributionHistoryButton);
         reportButtons.add(Box.createVerticalGlue());
 
         JPanel utilityButtons = new JPanel();
@@ -406,6 +432,11 @@ public class AdminClient extends JFrame {
         revenueBranchButton.setEnabled(enabled);
         totalRevenueButton.setEnabled(enabled);
         lowStockButton.setEnabled(enabled);
+        restockButton.setEnabled(enabled);
+        restockHistoryButton.setEnabled(enabled);
+        restockNairobiButton.setEnabled(enabled);
+        distributeStockButton.setEnabled(enabled);
+        distributionHistoryButton.setEnabled(enabled);
         refreshButton.setEnabled(true);
         exitButton.setEnabled(true);
     }
@@ -505,6 +536,765 @@ public class AdminClient extends JFrame {
         });
     }
 
+    private void showRestockHistory() {
+        setActiveNavButton(restockHistoryButton);
+        runReport("Loading restock history...", () -> {
+            List<ReportSection> sections = new ArrayList<>();
+            sections.add(new ReportSection(
+                "Restock History",
+                formatRestockHistoryItems(service.getRestockHistory()),
+                "No restock records found."
+            ));
+            return buildReportHtml(
+                "Restock History",
+                "Audit trail for branch restock operations",
+                sections,
+                null,
+                null
+            );
+        });
+    }
+
+    private void showRestockNairobi() {
+        setActiveNavButton(restockNairobiButton);
+        if (!isConnected) {
+            displayArea.setText(buildConnectionHelpHtml("Not connected to server."));
+            return;
+        }
+
+        JFrame nairobiFrame = new JFrame("Restock Nairobi (Main Warehouse)");
+        nairobiFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        nairobiFrame.setSize(600, 380);
+        nairobiFrame.setLocationRelativeTo(this);
+
+        JPanel mainPanel = new JPanel(new BorderLayout(12, 12));
+        mainPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
+        mainPanel.setBackground(APP_BACKGROUND);
+
+        JLabel titleLabel = new JLabel("Add Stock to Nairobi Warehouse");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setForeground(new Color(255, 235, 205));
+        mainPanel.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel formPanel = new JPanel();
+        formPanel.setOpaque(false);
+        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
+        formPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JLabel drinkLabel = new JLabel("Select Drink:");
+        drinkLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        drinkLabel.setForeground(BODY_TEXT);
+        formPanel.add(drinkLabel);
+
+        JComboBox<Drink> drinkCombo = new JComboBox<>();
+        drinkCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        drinkCombo.setBackground(new Color(30, 45, 70));
+        drinkCombo.setForeground(BODY_TEXT);
+        try {
+            for (Drink drink : service.getAvailableDrinks()) {
+                drinkCombo.addItem(drink);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        formPanel.add(drinkCombo);
+        formPanel.add(Box.createVerticalStrut(12));
+
+        JLabel quantityLabel = new JLabel("Quantity to Add:");
+        quantityLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        quantityLabel.setForeground(BODY_TEXT);
+        formPanel.add(quantityLabel);
+
+        JTextField quantityField = new JTextField();
+        quantityField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        quantityField.setBackground(new Color(30, 45, 70));
+        quantityField.setForeground(BODY_TEXT);
+        quantityField.setPreferredSize(new Dimension(400, 32));
+        formPanel.add(quantityField);
+        formPanel.add(Box.createVerticalStrut(20));
+
+        JLabel statusLabel = new JLabel();
+        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        statusLabel.setForeground(STATUS_PENDING);
+        formPanel.add(statusLabel);
+        formPanel.add(Box.createVerticalStrut(10));
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setOpaque(false);
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+
+        JButton addButton = new JButton("ADD STOCK");
+        addButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        addButton.setBackground(new Color(46, 125, 50));
+        addButton.setForeground(Color.WHITE);
+        addButton.setPreferredSize(new Dimension(150, 36));
+        addButton.addActionListener(e -> {
+            try {
+                Drink drink = (Drink) drinkCombo.getSelectedItem();
+                int qty = Integer.parseInt(quantityField.getText().trim());
+
+                if (drink == null || qty <= 0) {
+                    statusLabel.setText("❌ Invalid input");
+                    statusLabel.setForeground(STATUS_ERROR);
+                    return;
+                }
+
+                boolean success = service.restockMainBranch(drink.getId(), qty);
+                if (success) {
+                    statusLabel.setText("✓ Nairobi warehouse updated successfully");
+                    statusLabel.setForeground(STATUS_OK);
+                    quantityField.setText("");
+                } else {
+                    statusLabel.setText("❌ Update failed");
+                    statusLabel.setForeground(STATUS_ERROR);
+                }
+            } catch (Exception ex) {
+                statusLabel.setText("❌ " + ex.getMessage());
+                statusLabel.setForeground(STATUS_ERROR);
+            }
+        });
+
+        JButton closeButton = new JButton("CLOSE");
+        closeButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        closeButton.setBackground(new Color(58, 60, 83));
+        closeButton.setForeground(NAV_TEXT);
+        closeButton.setPreferredSize(new Dimension(120, 36));
+        closeButton.addActionListener(e -> nairobiFrame.dispose());
+
+        buttonPanel.add(addButton);
+        buttonPanel.add(Box.createHorizontalStrut(12));
+        buttonPanel.add(closeButton);
+        formPanel.add(buttonPanel);
+
+        JScrollPane scrollPane = new JScrollPane(formPanel);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(62, 91, 123), 1));
+        scrollPane.getViewport().setBackground(CARD_BACKGROUND);
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+
+        nairobiFrame.add(mainPanel);
+        nairobiFrame.setVisible(true);
+    }
+
+    private void showDistributeStock() {
+        setActiveNavButton(distributeStockButton);
+        if (!isConnected) {
+            displayArea.setText(buildConnectionHelpHtml("Not connected to server."));
+            return;
+        }
+
+        JFrame distributeFrame = new JFrame("Distribute Stock from Nairobi");
+        distributeFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        distributeFrame.setSize(600, 450);
+        distributeFrame.setLocationRelativeTo(this);
+
+        JPanel mainPanel = new JPanel(new BorderLayout(12, 12));
+        mainPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
+        mainPanel.setBackground(APP_BACKGROUND);
+
+        JLabel titleLabel = new JLabel("Transfer Stock to Branch");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setForeground(new Color(144, 202, 249));
+        mainPanel.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel formPanel = new JPanel();
+        formPanel.setOpaque(false);
+        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
+        formPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JLabel branchLabel = new JLabel("Transfer To:");
+        branchLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        branchLabel.setForeground(BODY_TEXT);
+        formPanel.add(branchLabel);
+
+        JComboBox<String> branchCombo = new JComboBox<>(new String[]{"NAKURU", "MOMBASA", "KISUMU"});
+        branchCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        branchCombo.setBackground(new Color(30, 45, 70));
+        branchCombo.setForeground(BODY_TEXT);
+        formPanel.add(branchCombo);
+        formPanel.add(Box.createVerticalStrut(12));
+
+        JLabel drinkLabel = new JLabel("Select Drink:");
+        drinkLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        drinkLabel.setForeground(BODY_TEXT);
+        formPanel.add(drinkLabel);
+
+        JComboBox<Drink> drinkCombo = new JComboBox<>();
+        drinkCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        drinkCombo.setBackground(new Color(30, 45, 70));
+        drinkCombo.setForeground(BODY_TEXT);
+        try {
+            for (Drink drink : service.getAvailableDrinks()) {
+                drinkCombo.addItem(drink);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        formPanel.add(drinkCombo);
+        formPanel.add(Box.createVerticalStrut(12));
+
+        JLabel quantityLabel = new JLabel("Quantity to Transfer:");
+        quantityLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        quantityLabel.setForeground(BODY_TEXT);
+        formPanel.add(quantityLabel);
+
+        JTextField quantityField = new JTextField();
+        quantityField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        quantityField.setBackground(new Color(30, 45, 70));
+        quantityField.setForeground(BODY_TEXT);
+        quantityField.setPreferredSize(new Dimension(400, 32));
+        formPanel.add(quantityField);
+        formPanel.add(Box.createVerticalStrut(20));
+
+        JLabel statusLabel = new JLabel();
+        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        statusLabel.setForeground(STATUS_PENDING);
+        formPanel.add(statusLabel);
+        formPanel.add(Box.createVerticalStrut(10));
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setOpaque(false);
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+
+        JButton transferButton = new JButton("TRANSFER STOCK");
+        transferButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        transferButton.setBackground(new Color(33, 150, 243));
+        transferButton.setForeground(Color.WHITE);
+        transferButton.setPreferredSize(new Dimension(180, 36));
+        transferButton.addActionListener(e -> {
+            try {
+                String branch = branchCombo.getSelectedItem().toString();
+                Drink drink = (Drink) drinkCombo.getSelectedItem();
+                int qty = Integer.parseInt(quantityField.getText().trim());
+
+                if (drink == null || qty <= 0) {
+                    statusLabel.setText("❌ Invalid input");
+                    statusLabel.setForeground(STATUS_ERROR);
+                    return;
+                }
+
+                boolean success = service.distributeStock(branch, drink.getId(), qty);
+                if (success) {
+                    statusLabel.setText("✓ Stock transferred to " + branch + " successfully");
+                    statusLabel.setForeground(STATUS_OK);
+                    quantityField.setText("");
+                } else {
+                    statusLabel.setText("❌ Transfer failed (insufficient Nairobi stock?)");
+                    statusLabel.setForeground(STATUS_ERROR);
+                }
+            } catch (Exception ex) {
+                statusLabel.setText("❌ " + ex.getMessage());
+                statusLabel.setForeground(STATUS_ERROR);
+            }
+        });
+
+        JButton closeButton = new JButton("CLOSE");
+        closeButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        closeButton.setBackground(new Color(58, 60, 83));
+        closeButton.setForeground(NAV_TEXT);
+        closeButton.setPreferredSize(new Dimension(120, 36));
+        closeButton.addActionListener(e -> distributeFrame.dispose());
+
+        buttonPanel.add(transferButton);
+        buttonPanel.add(Box.createHorizontalStrut(12));
+        buttonPanel.add(closeButton);
+        formPanel.add(buttonPanel);
+
+        JScrollPane scrollPane = new JScrollPane(formPanel);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(62, 91, 123), 1));
+        scrollPane.getViewport().setBackground(CARD_BACKGROUND);
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+
+        distributeFrame.add(mainPanel);
+        distributeFrame.setVisible(true);
+    }
+
+    private void showDistributionHistory() {
+        setActiveNavButton(distributionHistoryButton);
+        runReport("Loading distribution history...", () -> {
+            List<ReportSection> sections = new ArrayList<>();
+            sections.add(new ReportSection(
+                "Distribution Log",
+                normalizeCurrencyList(service.getDistributionHistory()),
+                "No distribution records found."
+            ));
+            return buildReportHtml(
+                "Distribution History",
+                "Complete audit trail of Nairobi stock transfers to branches",
+                sections,
+                null,
+                null
+            );
+        });
+    }
+
+    private void showRestockDialog() {
+        setActiveNavButton(restockButton);
+        if (!isConnected) {
+            displayArea.setText(buildConnectionHelpHtml("Not connected to server."));
+            return;
+        }
+
+        JDialog restockDialog = new JDialog(this, "Inventory Operations Center - Headquarters (Nairobi)", false);
+        restockDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        restockDialog.setSize(1240, 780);
+        restockDialog.setLocationRelativeTo(this);
+
+        JPanel mainPanel = new JPanel(new BorderLayout(12, 12));
+        mainPanel.setBorder(new EmptyBorder(12, 12, 12, 12));
+        mainPanel.setBackground(APP_BACKGROUND);
+
+        JPanel headerPanel = createCard();
+        headerPanel.setLayout(new BorderLayout(8, 6));
+        JLabel titleLabel = new JLabel("Restock Inventory Workspace");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        titleLabel.setForeground(HEADER_TEXT);
+        JLabel subtitleLabel = new JLabel("Transfer stock from Headquarters to branches with live visibility and audit history.");
+        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitleLabel.setForeground(new Color(151, 177, 209));
+        headerPanel.add(titleLabel, BorderLayout.NORTH);
+        headerPanel.add(subtitleLabel, BorderLayout.SOUTH);
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+
+        DefaultComboBoxModel<String> branchModel = new DefaultComboBoxModel<>(new String[]{"NAKURU", "MOMBASA", "KISUMU"});
+        JComboBox<String> branchCombo = new JComboBox<>(branchModel);
+        styleInventoryInput(branchCombo);
+
+        DefaultComboBoxModel<Drink> drinkModel = new DefaultComboBoxModel<>();
+        JComboBox<Drink> drinkCombo = new JComboBox<>(drinkModel);
+        styleInventoryInput(drinkCombo);
+
+        JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(12, 1, 5000, 1));
+        styleInventorySpinner(quantitySpinner);
+
+        JLabel inlineStatusLabel = createInlineStatusLabel("Choose a destination branch, drink, and quantity to transfer.");
+
+        JPanel formPanel = createCard();
+        formPanel.setPreferredSize(new Dimension(330, 0));
+        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
+        formPanel.add(createInventorySectionTitle("Restock Form", "Headquarters inventory is the source of every transfer."));
+        formPanel.add(Box.createVerticalStrut(16));
+        formPanel.add(createInventoryField("Destination Branch", branchCombo));
+        formPanel.add(Box.createVerticalStrut(10));
+        formPanel.add(createInventoryField("Drink", drinkCombo));
+        formPanel.add(Box.createVerticalStrut(10));
+        formPanel.add(createInventoryField("Quantity to Transfer", quantitySpinner));
+        formPanel.add(Box.createVerticalStrut(16));
+        formPanel.add(inlineStatusLabel);
+        formPanel.add(Box.createVerticalStrut(16));
+
+        DefaultTableModel stockTableModel = createReadOnlyTableModel("Branch", "Drink", "Current Stock", "Threshold", "Status");
+        JTable stockTable = createInventoryTable(stockTableModel);
+
+        DefaultTableModel historyTableModel = createReadOnlyTableModel("Restock Date", "Branch", "Drink", "Qty Added");
+        JTable historyTable = createInventoryTable(historyTableModel);
+
+        StockChartPanel stockChartPanel = new StockChartPanel(service);
+        stockChartPanel.setPreferredSize(new Dimension(760, 320));
+
+        JButton submitButton = createWorkspaceButton("Restock Now", new Color(38, 133, 93));
+        submitButton.addActionListener(e -> {
+            Drink selectedDrink = (Drink) drinkCombo.getSelectedItem();
+            String selectedBranch = String.valueOf(branchCombo.getSelectedItem());
+            int quantity = ((Number) quantitySpinner.getValue()).intValue();
+            performRestock(selectedBranch, selectedDrink, quantity, quantitySpinner, inlineStatusLabel, stockTableModel, historyTableModel, stockChartPanel);
+        });
+
+        JButton refreshButton = createWorkspaceButton("Refresh Live Data", new Color(40, 59, 86));
+        refreshButton.addActionListener(e -> {
+            updateInlineStatus(inlineStatusLabel, "Refreshing inventory workspace...", STATUS_PENDING);
+            loadStockData(stockTableModel);
+            loadRestockHistoryTable(historyTableModel);
+            stockChartPanel.refreshData();
+        });
+
+        JButton closeButton = createWorkspaceButton("Close Workspace", new Color(58, 60, 83));
+        closeButton.addActionListener(e -> restockDialog.dispose());
+
+        JPanel actionPanel = new JPanel(new GridLayout(1, 3, 10, 0));
+        actionPanel.setOpaque(false);
+        actionPanel.add(submitButton);
+        actionPanel.add(refreshButton);
+        actionPanel.add(closeButton);
+        formPanel.add(actionPanel);
+        formPanel.add(Box.createVerticalStrut(16));
+
+        JLabel guidanceLabel = new JLabel(
+            "<html><body style='width:270px;color:#9fb8d8;font-family:Segoe UI,sans-serif;font-size:12px;'>"
+                + "Tip: click any stock row to sync its branch and drink into the form. "
+                + "The chart refreshes automatically every 5 seconds while this workspace is open."
+                + "</body></html>"
+        );
+        guidanceLabel.setForeground(new Color(159, 184, 216));
+        formPanel.add(guidanceLabel);
+
+        drinkCombo.addActionListener(e -> stockChartPanel.setDrink((Drink) drinkCombo.getSelectedItem()));
+
+        stockTable.getSelectionModel().addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting() || stockTable.getSelectedRow() < 0) {
+                return;
+            }
+
+            int modelRow = stockTable.convertRowIndexToModel(stockTable.getSelectedRow());
+            String branch = String.valueOf(stockTableModel.getValueAt(modelRow, 0));
+            String drinkName = String.valueOf(stockTableModel.getValueAt(modelRow, 1));
+            if (!"HEADQUARTERS (NAIROBI)".equals(branch)) {
+                branchCombo.setSelectedItem(toBranchCode(branch));
+            }
+            selectDrinkByName(drinkCombo, drinkName);
+            updateInlineStatus(inlineStatusLabel, "Form synced from the selected stock row.", STATUS_PENDING);
+        });
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        tabs.addTab("Stock Levels", createTableTab(stockTable));
+        tabs.addTab("Restock Activity", createTableTab(historyTable));
+
+        JPanel insightsPanel = new JPanel(new BorderLayout(0, 12));
+        insightsPanel.setOpaque(false);
+        insightsPanel.add(stockChartPanel, BorderLayout.NORTH);
+        insightsPanel.add(tabs, BorderLayout.CENTER);
+
+        mainPanel.add(formPanel, BorderLayout.WEST);
+        mainPanel.add(insightsPanel, BorderLayout.CENTER);
+
+        javax.swing.Timer workspaceRefreshTimer = new javax.swing.Timer(8000, e -> {
+            loadStockData(stockTableModel);
+            loadRestockHistoryTable(historyTableModel);
+        });
+
+        restockDialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                workspaceRefreshTimer.start();
+                stockChartPanel.startAutoRefresh();
+            }
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                workspaceRefreshTimer.stop();
+                stockChartPanel.stopAutoRefresh();
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                workspaceRefreshTimer.stop();
+                stockChartPanel.stopAutoRefresh();
+            }
+        });
+
+        restockDialog.add(mainPanel);
+
+        loadAvailableDrinks(drinkModel, drinkCombo, stockChartPanel, inlineStatusLabel);
+        loadStockData(stockTableModel);
+        loadRestockHistoryTable(historyTableModel);
+        restockDialog.setVisible(true);
+    }
+
+    private void loadStockData(DefaultTableModel tableModel) {
+        new SwingWorker<List<String>, Void>() {
+            @Override
+            protected List<String> doInBackground() throws Exception {
+                return service.getAllStockLevels();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<String> stockData = get();
+                    tableModel.setRowCount(0); // Clear table
+
+                    for (String line : stockData) {
+                        String[] parts = line.split("\t");
+                        if (parts.length >= 5) {
+                            tableModel.addRow(new Object[]{parts[0], parts[1], parts[2], parts[3], parts[4]});
+                        }
+                    }
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(null, "Error loading stock data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void loadRestockHistoryTable(DefaultTableModel historyTableModel) {
+        new SwingWorker<List<String>, Void>() {
+            @Override
+            protected List<String> doInBackground() throws Exception {
+                return service.getRestockHistory();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<String> historyRows = get();
+                    historyTableModel.setRowCount(0);
+
+                    for (String row : historyRows) {
+                        String[] parts = row.split("\t");
+                        if (parts.length >= 4) {
+                            historyTableModel.addRow(new Object[]{parts[0], parts[1], parts[2], parts[3]});
+                        }
+                    }
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(null, "Error loading restock history: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void loadAvailableDrinks(
+        DefaultComboBoxModel<Drink> drinkModel,
+        JComboBox<Drink> drinkCombo,
+        StockChartPanel stockChartPanel,
+        JLabel inlineStatusLabel
+    ) {
+        new SwingWorker<List<Drink>, Void>() {
+            @Override
+            protected List<Drink> doInBackground() throws Exception {
+                return service.getAvailableDrinks();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<Drink> drinks = get();
+                    drinkModel.removeAllElements();
+                    for (Drink drink : drinks) {
+                        drinkModel.addElement(drink);
+                    }
+
+                    if (drinkModel.getSize() > 0) {
+                        drinkCombo.setSelectedIndex(0);
+                        stockChartPanel.setDrink((Drink) drinkModel.getSelectedItem());
+                        updateInlineStatus(inlineStatusLabel, "Live inventory is connected and refreshing automatically.", STATUS_OK);
+                    } else {
+                        updateInlineStatus(inlineStatusLabel, "No drink catalog entries were returned by the server.", STATUS_ERROR);
+                    }
+                } catch (Exception e) {
+                    updateInlineStatus(inlineStatusLabel, "Unable to load drinks: " + e.getMessage(), STATUS_ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    private void performRestock(
+        String branch,
+        Drink drink,
+        int quantity,
+        JSpinner quantitySpinner,
+        JLabel inlineStatusLabel,
+        DefaultTableModel stockTableModel,
+        DefaultTableModel historyTableModel,
+        StockChartPanel stockChartPanel
+    ) {
+        if (drink == null) {
+            updateInlineStatus(inlineStatusLabel, "Select a drink before submitting the transfer.", STATUS_ERROR);
+            return;
+        }
+        if (branch == null || branch.trim().isEmpty()) {
+            updateInlineStatus(inlineStatusLabel, "Select a destination branch before submitting the transfer.", STATUS_ERROR);
+            return;
+        }
+        if (quantity <= 0) {
+            updateInlineStatus(inlineStatusLabel, "Quantity must be greater than zero.", STATUS_ERROR);
+            return;
+        }
+
+        updateInlineStatus(
+            inlineStatusLabel,
+            "Submitting " + quantity + " units of " + drink.getName() + " to " + branch + "...",
+            STATUS_PENDING
+        );
+
+        new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                return service.restockDrink(branch, drink.getId(), quantity);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean success = get();
+                    if (success) {
+                        quantitySpinner.setValue(12);
+                        updateInlineStatus(
+                            inlineStatusLabel,
+                            "Restock successful: " + drink.getName() + " transferred to " + branch + ".",
+                            STATUS_OK
+                        );
+                        loadStockData(stockTableModel);
+                        loadRestockHistoryTable(historyTableModel);
+                        stockChartPanel.refreshData();
+                    } else {
+                        updateInlineStatus(
+                            inlineStatusLabel,
+                            "Restock failed. Check Headquarters stock and branch configuration, then try again.",
+                            STATUS_ERROR
+                        );
+                    }
+                } catch (Exception e) {
+                    updateInlineStatus(inlineStatusLabel, "Restock error: " + e.getMessage(), STATUS_ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    private DefaultTableModel createReadOnlyTableModel(String... columns) {
+        return new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+    }
+
+    private JTable createInventoryTable(DefaultTableModel tableModel) {
+        JTable table = new JTable(tableModel);
+        table.setBackground(CARD_BACKGROUND);
+        table.setForeground(BODY_TEXT);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setRowHeight(30);
+        table.setFillsViewportHeight(true);
+        table.setGridColor(new Color(65, 92, 122));
+        table.setSelectionBackground(new Color(27, 76, 118));
+        table.setSelectionForeground(HEADER_TEXT);
+        table.getTableHeader().setBackground(new Color(62, 91, 123));
+        table.getTableHeader().setForeground(HEADER_TEXT);
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        return table;
+    }
+
+    private JScrollPane createTableTab(JTable table) {
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(62, 91, 123), 1));
+        scrollPane.getViewport().setBackground(CARD_BACKGROUND);
+        return scrollPane;
+    }
+
+    private JPanel createInventorySectionTitle(String title, String subtitle) {
+        JPanel panel = new JPanel(new BorderLayout(0, 4));
+        panel.setOpaque(false);
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setForeground(HEADER_TEXT);
+
+        JLabel subtitleLabel = new JLabel("<html><body style='width:270px;color:#97b1d1;font-family:Segoe UI,sans-serif;font-size:12px;'>" + subtitle + "</body></html>");
+        subtitleLabel.setForeground(new Color(151, 177, 209));
+
+        panel.add(titleLabel, BorderLayout.NORTH);
+        panel.add(subtitleLabel, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private JPanel createInventoryField(String labelText, java.awt.Component inputComponent) {
+        JPanel fieldPanel = new JPanel(new BorderLayout(0, 6));
+        fieldPanel.setOpaque(false);
+
+        JLabel label = new JLabel(labelText);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        label.setForeground(BODY_TEXT);
+
+        fieldPanel.add(label, BorderLayout.NORTH);
+        fieldPanel.add(inputComponent, BorderLayout.CENTER);
+        return fieldPanel;
+    }
+
+    private void styleInventoryInput(JComboBox<?> comboBox) {
+        comboBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        comboBox.setBackground(new Color(28, 49, 78));
+        comboBox.setForeground(BODY_TEXT);
+        comboBox.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(80, 113, 149), 1),
+            BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        ));
+    }
+
+    private void styleInventorySpinner(JSpinner spinner) {
+        spinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        spinner.getEditor().setFont(new Font("Segoe UI", Font.PLAIN, 13));
+    }
+
+    private JButton createWorkspaceButton(String text, Color background) {
+        JButton button = new JButton(text);
+        button.setUI(new BasicButtonUI());
+        button.setFocusPainted(false);
+        button.setOpaque(true);
+        button.setBackground(background);
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        button.setBorder(
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(background.brighter(), 1),
+                BorderFactory.createEmptyBorder(10, 14, 10, 14)
+            )
+        );
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return button;
+    }
+
+    private JLabel createInlineStatusLabel(String message) {
+        JLabel label = new JLabel(message);
+        label.setOpaque(true);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        updateInlineStatus(label, message, STATUS_PENDING);
+        return label;
+    }
+
+    private void updateInlineStatus(JLabel label, String message, Color statusColor) {
+        label.setText(message);
+        label.setForeground(HEADER_TEXT);
+        if (STATUS_OK.equals(statusColor)) {
+            label.setBackground(new Color(24, 84, 63));
+            label.setBorder(
+                BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(78, 171, 133), 1),
+                    BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                )
+            );
+        } else if (STATUS_ERROR.equals(statusColor)) {
+            label.setBackground(new Color(90, 47, 56));
+            label.setBorder(
+                BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(206, 117, 135), 1),
+                    BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                )
+            );
+        } else {
+            label.setBackground(new Color(79, 63, 35));
+            label.setBorder(
+                BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(197, 155, 87), 1),
+                    BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                )
+            );
+        }
+    }
+
+    private void selectDrinkByName(JComboBox<Drink> drinkCombo, String drinkName) {
+        if (drinkName == null) {
+            return;
+        }
+        for (int i = 0; i < drinkCombo.getItemCount(); i++) {
+            Drink drink = drinkCombo.getItemAt(i);
+            if (drink != null && drink.getName().equalsIgnoreCase(drinkName)) {
+                drinkCombo.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private String toBranchCode(String branchLabel) {
+        if (branchLabel == null) {
+            return "";
+        }
+        if (branchLabel.toUpperCase().contains("NAIROBI")) {
+            return "NAIROBI";
+        }
+        return branchLabel.trim().toUpperCase();
+    }
+
     private void runReport(String loadingStatus, ReportBuilder reportBuilder) {
         if (!isConnected) {
             displayArea.setText(buildConnectionHelpHtml("Not connected to server."));
@@ -553,6 +1343,11 @@ public class AdminClient extends JFrame {
             "Low Stock Alerts",
             normalizeCurrencyList(service.getLowStockAlerts()),
             "All products are above threshold."
+        ));
+        sections.add(new ReportSection(
+            "Recent Restocks",
+            limitItems(formatRestockHistoryItems(service.getRestockHistory()), 6),
+            "No restock activity recorded yet."
         ));
 
         double totalRevenue = service.getTotalRevenue();
@@ -687,6 +1482,48 @@ public class AdminClient extends JFrame {
         return normalized;
     }
 
+    private List<String> formatRestockHistoryItems(List<String> historyRows) {
+        List<String> formatted = new ArrayList<>();
+        if (historyRows == null) {
+            return formatted;
+        }
+
+        for (String row : historyRows) {
+            String[] parts = row.split("\t");
+            if (parts.length >= 4) {
+                formatted.add(parts[0] + " | " + parts[1] + " | " + parts[2] + " | +" + parts[3] + " units");
+            } else {
+                formatted.add(row);
+            }
+        }
+        return formatted;
+    }
+
+    private List<String> limitItems(List<String> items, int maxItems) {
+        List<String> limited = new ArrayList<>();
+        if (items == null || maxItems <= 0) {
+            return limited;
+        }
+
+        for (int i = 0; i < items.size() && i < maxItems; i++) {
+            limited.add(items.get(i));
+        }
+        return limited;
+    }
+
+    private int findDrinkId(String drinkName) {
+        try {
+            for (Drink drink : service.getAvailableDrinks()) {
+                if (drink.getName().equalsIgnoreCase(drinkName)) {
+                    return drink.getId();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
     private List<String> prioritizeNairobi(List<String> items) {
         if (items == null) {
             return new ArrayList<>();
@@ -763,7 +1600,7 @@ public class AdminClient extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+                UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(null, "Look and feel setup failed: " + e.getMessage());
             }
