@@ -27,7 +27,7 @@
       <dependency>
         <groupId>mysql</groupId>
         <artifactId>mysql-connector-java</artifactId>
-        <version>KSH{mysql.version}</version>
+        <version>${mysql.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -40,7 +40,7 @@
           <artifactId>exec-maven-plugin</artifactId>
           <version>3.1.0</version>
           <configuration>
-            <mainClass>KSH{exec.mainClass}</mainClass>
+            <mainClass>${exec.mainClass}</mainClass>
           </configuration>
         </plugin>
         <plugin>

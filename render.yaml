@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: drinks-backend
+    runtime: docker
+    plan: free
+    envVars:
+      - key: "DATABASE_URL"
+        value: postgresql://postgres:Sensor001.craft@db.zlhzjbhvcnvfjewmormd.supabase.co:5432/postgres
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASS
+        value: your_password
