@@ -5,7 +5,7 @@ services:
     plan: free
     envVars:
       - key: "DATABASE_URL"
-        value: postgresql://postgres:Sensor001.craft@db.zlhzjbhvcnvfjewmormd.supabase.co:5432/postgres
+        value: ""
       - key: DB_USER
         value: postgres
       - key: DB_PASS
